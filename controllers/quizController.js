@@ -1,106 +1,84 @@
 const Quiz = require("../models/quiz.js");
 const Course = require("../models/course.js");
-
-const apiFeatures = require("../utils/apiFeatures");
+const APIFeatures = require("../utils/apiFeatures");
 const ExamResult = require("../models/examResult.js");
-const { extname } = require("path/win32");
-const { search } = require("../utils/search.js");
-//TODO fix and test the new logic of quizzes
-// DONE
+const { Op } = require("sequelize");
+
+// Get all quizzes with APIFeatures and optional teacherId filter
 const getAllQuizzes = async (req, res) => {
-  if (req.query.search) {
-    await search(
-      Quiz,
-      ["title"],
-      [
-        {
-          path: "questions",
-          populate: { path: "choices" },
-        },
-        "courseId",
-      ],
-      req,
-      res
-    );
-    return;
-  }
   try {
-    const features = new apiFeatures(
-      Quiz.find()
-        .populate({
-          path: "questions",
-          populate: { path: "choices" },
-        })
-        .populate("courseId"),
-      req.query
-    )
+    const options = {
+      include: [
+        {
+          model: Question,
+          as: "questions",
+          include: [{ model: Choice, as: "choices" }],
+        },
+        { model: Course, as: "course" },
+      ],
+      where: {},
+    };
+
+    if (req.query.teacherId) {
+      options.include[1].where = { id: req.query.teacherId };
+    }
+
+    const features = new APIFeatures(Quiz, req.query, options.include)
       .filter()
       .sort()
       .limitFields()
       .paginate();
 
-    const countFeatures = new apiFeatures(
-      Quiz.find().lean(),
-      req.query
-    ).filter();
-    let [quizzes, numberOfQuizzes] = await Promise.all([
-      features.query, // Get paginated quizzes
-      countFeatures.query.countDocuments(), // Count all filtered documents
-    ]);
-    quizzes = quizzes.map((q) => q.toObject());
+    const [quizzes, count] = await features.execute();
 
+    // Hide answers for students
     if (req.user.role === "Student") {
       quizzes.forEach((quiz) => {
         quiz.questions?.forEach((q) => {
-          if (q.type === "true-false") {
-            q.correctAnswer = null;
-          } else {
-            q.choices?.forEach((choice) => {
-              choice.isCorrect = null;
-            });
-          }
+          if (q.type === "true-false") q.correctAnswer = null;
+          else q.choices?.forEach((c) => (c.isCorrect = null));
         });
       });
     }
 
-    // Send the response
     res.status(200).json({
       status: "success",
       results: quizzes.length,
-      numberOfQuizzes,
+      numberOfQuizzes: count,
       data: quizzes,
     });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      status: "fail",
-      message: error.message,
-    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "fail", message: err.message });
   }
 };
-// Get a quiz by ID
+
+// Get quiz by ID
 const getQuizById = async (req, res) => {
   try {
-    const quiz = await Quiz.findById(req.params.id).populate("courseId").lean();
+    const quiz = await Quiz.findByPk(req.params.id, {
+      include: [
+        {
+          model: Question,
+          as: "questions",
+          include: [{ model: Choice, as: "choices" }],
+        },
+        { model: Course, as: "course" },
+      ],
+    });
+
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
     if (req.user.role === "Student") {
       quiz.questions?.forEach((q) => {
-        if (q.type === "true-false") {
-          q.correctAnswer = null;
-        } else {
-          q.choices?.forEach((choice) => {
-            choice.isCorrect = null;
-          });
-        }
+        if (q.type === "true-false") q.correctAnswer = null;
+        else q.choices?.forEach((c) => (c.isCorrect = null));
       });
     }
-    if (!quiz) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Quiz not found" });
-    }
+
     res.status(200).json({ status: "success", data: quiz });
-  } catch (error) {
-    res.status(400).json({ status: "fail", message: error.message });
+  } catch (err) {
+    res.status(500).json({ status: "fail", message: err.message });
   }
 };
 
@@ -111,306 +89,135 @@ const createQuiz = async (req, res) => {
       const teacherId = req.user.profileId;
       const courseId = req.body.courseId;
 
-      if (!courseId) {
-        return res
-          .status(400)
-          .json({ message: "courseId is required for teachers" });
-      }
+      if (!courseId)
+        return res.status(400).json({ message: "courseId is required" });
 
-      const course = await Course.findOne({ _id: courseId, teacherId });
+      const course = await Course.findOne({
+        where: { id: courseId, teacherId },
+      });
       if (!course)
         return res
-          .status(404)
-          .json({ message: "not allowed or Course not found" });
+          .status(403)
+          .json({ message: "Not allowed or course not found" });
     }
-    const newQuiz = await Quiz.create(req.body);
 
-    // Respond with the created quiz
-    res.status(201).json({
-      status: "success",
-      data: newQuiz,
-    });
-  } catch (error) {
-    // Handle any errors that occur during the process
-    res.status(400).json({
-      status: "fail",
-      message: error.message,
-    });
+    const newQuiz = await Quiz.create(req.body);
+    res.status(201).json({ status: "success", data: newQuiz });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
   }
 };
-// Update a quiz by ID
+
+// Update quiz
 const updateQuiz = async (req, res) => {
   try {
-    const quiz = await Quiz.findById(req.params.id);
-    if (!quiz) {
-      return res.status(404).json({ message: "Quiz not found" });
-    }
+    const quiz = await Quiz.findByPk(req.params.id);
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
-      const originalCourse = await Course.findOne({
-        _id: quiz.courseId,
-        teacherId,
+      const course = await Course.findOne({
+        where: { id: quiz.courseId, teacherId },
       });
+      if (!course) return res.status(403).json({ message: "Not allowed" });
 
-      if (!originalCourse) {
-        return res.status(403).json({ message: "Not allowed" });
-      }
-      if (req.body?.courseId) {
+      if (req.body.courseId) {
         const newCourse = await Course.findOne({
-          _id: req.body.courseId,
-          teacherId,
+          where: { id: req.body.courseId, teacherId },
         });
-        if (!newCourse) {
-          return res
-            .status(403)
-            .json({ message: "Not allowed to move quiz to this course" });
-        }
+        if (!newCourse)
+          return res.status(403).json({ message: "Not allowed to move quiz" });
       }
     }
 
-    const updatedQuiz = await Quiz.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
-    if (!updatedQuiz) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Quiz not found" });
-    }
-    res.status(200).json({ status: "success", data: updatedQuiz });
-  } catch (error) {
-    res.status(400).json({ status: "fail", message: error.message });
+    await quiz.update(req.body);
+    res.status(200).json({ status: "success", data: quiz });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
   }
 };
 
-// Delete a quiz by ID
+// Delete quiz
 const deleteQuiz = async (req, res) => {
   try {
-    const quizId = req.params.id;
-
-    const quiz = await Quiz.findById(quizId);
-    if (!quiz) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Quiz not found" });
-    }
+    const quiz = await Quiz.findByPk(req.params.id);
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
-      const courseId = quiz.courseId;
-
-      const course = await Course.findOne({ _id: courseId, teacherId });
-
-      if (!course) {
-        return res.status(403).json({ message: "Not allowed" });
-      }
+      const course = await Course.findOne({
+        where: { id: quiz.courseId, teacherId },
+      });
+      if (!course) return res.status(403).json({ message: "Not allowed" });
     }
 
-    await Quiz.findByIdAndDelete(quizId);
-
-    res.status(200).json({
-      status: "success",
-      message: "Quiz deleted successfully",
-    });
-  } catch (error) {
-    res.status(400).json({ status: "fail", message: error.message });
-  }
-};
-//question functions
-
-// Get all questions for a specific quiz by quiz ID
-const getAllQuestions = async (req, res) => {
-  try {
-    const quizId = req.params.quizId;
-    const quiz = await Quiz.findById(quizId).select("questions");
-
-    if (!quiz) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Quiz not found" });
-    }
-
-    res.status(200).json({
-      status: "success",
-      results: quiz.questions.length,
-      data: quiz.questions,
-    });
-  } catch (error) {
-    res.status(400).json({ status: "fail", message: error.message });
+    await quiz.destroy();
+    res
+      .status(200)
+      .json({ status: "success", message: "Quiz deleted successfully" });
+  } catch (err) {
+    res.status(400).json({ status: "fail", message: err.message });
   }
 };
 
-const getQuestionById = async (req, res) => {
-  try {
-    const { quizId, questionId } = req.params;
-    const quiz = await Quiz.findById(quizId);
-
-    if (!quiz) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Quiz not found" });
-    }
-
-    const question = quiz.questions.id(questionId);
-
-    if (!question) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Question not found" });
-    }
-    res.status(200).json({
-      status: "success",
-      data: question,
-    });
-  } catch (error) {
-    res.status(400).json({ status: "fail", message: error.message });
-  }
-};
-// // Update a specific question by ID
-// const updateQuestion = async (req, res) => {
-//   try {
-//     const { quizId, questionId } = req.params;
-//     const { text, type, choices, correctAnswer } = req.body;
-
-//     const quiz = await Quiz.findById(quizId);
-//     if (!quiz) {
-//       return res
-//         .status(404)
-//         .json({ status: "fail", message: "Quiz not found" });
-//     }
-
-//     const question = quiz.questions.id(questionId);
-//     if (!question) {
-//       return res
-//         .status(404)
-//         .json({ status: "fail", message: "Question not found" });
-//     }
-
-//     // Update fields
-//     if (text) question.text = text;
-//     if (type) question.type = type;
-//     if (choices) question.choices = choices;
-//     if (correctAnswer) question.correctAnswer = correctAnswer;
-
-//     await quiz.save();
-//     res.status(200).json({ status: "success", data: question });
-//   } catch (error) {
-//     res.status(400).json({ status: "fail", message: error.message });
-//   }
-// };
-// // Delete a specific question by ID
-// const deleteQuestion = async (req, res) => {
-//   try {
-//     const { quizId, questionId } = req.params;
-//     const quiz = await Quiz.findById(quizId);
-//     if (!quiz) {
-//       return res
-//         .status(404)
-//         .json({ status: "fail", message: "Quiz not found" });
-//     }
-
-//     const question = quiz.questions.id(questionId);
-//     if (!question) {
-//       return res
-//         .status(404)
-//         .json({ status: "fail", message: "Question not found" });
-//     }
-
-//     // Remove the question
-//     question.remove();
-//     await quiz.save();
-
-//     res.status(204).json({ status: "success", data: null });
-//   } catch (error) {
-//     res.status(400).json({ status: "fail", message: error.message });
-//   }
-// };
-
+// Submit quiz
 const submitQuiz = async (req, res) => {
   try {
-    if (req.user.role !== "Student") {
-      return res.status(403).json({
-        status: "fail",
-        message: "Only students can submit a quiz",
-      });
-    }
+    if (req.user.role !== "Student")
+      return res.status(403).json({ message: "Only students can submit" });
 
     const { studentAnswers, quizId } = req.body;
     const studentId = req.user.profileId;
 
-    if (!quizId || !Array.isArray(studentAnswers)) {
-      return res.status(400).json({
-        status: "fail",
-        message: "quizId and studentAnswers are required",
-      });
-    }
+    if (!quizId || !Array.isArray(studentAnswers))
+      return res.status(400).json({ message: "quizId and answers required" });
 
-    const quiz = await Quiz.findById(quizId).populate("courseId").lean();
-    if (!quiz) {
-      return res
-        .status(404)
-        .json({ status: "fail", message: "Quiz not found" });
-    }
-
-    const existingSubmission = await ExamResult.findOne({
-      examId: quizId,
-      studentId,
+    const quiz = await Quiz.findByPk(quizId, {
+      include: [
+        {
+          model: Question,
+          as: "questions",
+          include: [{ model: Choice, as: "choices" }],
+        },
+      ],
     });
-    if (existingSubmission) {
-      return res.status(400).json({
-        status: "fail",
-        message: "You have already submitted this quiz",
-        examResult: existingSubmission,
-        note: "You Think You Are Smart Get Gud",
-      });
-    }
+
+    if (!quiz) return res.status(404).json({ message: "Quiz not found" });
+
+    const existing = await ExamResult.findOne({
+      where: { examId: quizId, studentId },
+    });
+    if (existing)
+      return res
+        .status(400)
+        .json({ message: "You already submitted this quiz" });
 
     const ids = studentAnswers.map((a) => String(a.questionId));
-    const uniqueIds = new Set(ids);
-    if (ids.length !== uniqueIds.size) {
-      return res.status(400).json({
-        status: "fail",
-        message: "Multiple answers per question are not allowed ",
-        note: "You Think You Are Smart Get Gud",
-      });
-    }
+    if (ids.length !== new Set(ids).size)
+      return res
+        .status(400)
+        .json({ message: "Multiple answers per question not allowed" });
 
-    const validQuestionIds = new Set(quiz.questions.map((q) => String(q._id)));
-    for (const qId of uniqueIds) {
-      if (!validQuestionIds.has(qId)) {
-        return res.status(400).json({
-          status: "fail",
-          message: "Invalid question submitted",
-        });
-      }
-    }
-
-    const studentMap = new Map();
-    for (const ans of studentAnswers) {
-      studentMap.set(String(ans.questionId), String(ans.answer));
-    }
+    const validQuestionIds = new Set(quiz.questions.map((q) => String(q.id)));
+    for (const id of ids)
+      if (!validQuestionIds.has(id))
+        return res.status(400).json({ message: "Invalid question submitted" });
 
     let correctCount = 0;
     for (const q of quiz.questions) {
-      const studentAnswer = studentMap.get(String(q._id));
-      if (studentAnswer == null) continue;
+      const ans = studentAnswers.find(
+        (a) => String(a.questionId) === String(q.id)
+      );
+      if (!ans) continue;
 
       let correctAnswer;
-      if (q.type === "true-false") {
-        correctAnswer = String(q.correctAnswer);
-      } else {
-        const correctChoice = q.choices?.find((c) => c.isCorrect);
-        if (!correctChoice) continue;
-        correctAnswer = String(correctChoice.text);
-      }
+      if (q.type === "true-false") correctAnswer = String(q.correctAnswer);
+      else correctAnswer = String(q.choices.find((c) => c.isCorrect)?.text);
 
-      if (studentAnswer === correctAnswer) correctCount++;
+      if (String(ans.answer) === correctAnswer) correctCount++;
     }
 
-    const totalQuestions = quiz.questions.length;
-    const score = (quiz.totalMarks * correctCount) / totalQuestions;
-
-    // Store result
+    const score = (quiz.totalMarks * correctCount) / quiz.questions.length;
     const examResult = await ExamResult.create({
       examId: quizId,
       studentId,
@@ -420,21 +227,20 @@ const submitQuiz = async (req, res) => {
 
     res.status(200).json({
       status: "success",
-      message: `Quiz submitted successfully. Score: ${score} / ${quiz.totalMarks}`,
+      message: `Score: ${score}/${quiz.totalMarks}`,
       data: examResult,
     });
-  } catch (error) {
-    console.error(error.message);
-    res.status(500).json({ status: "fail", message: error.message });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ status: "fail", message: err.message });
   }
 };
+
 module.exports = {
-  createQuiz,
   getAllQuizzes,
   getQuizById,
+  createQuiz,
   updateQuiz,
-  submitQuiz,
   deleteQuiz,
-  getAllQuestions,
-  getQuestionById,
+  submitQuiz,
 };

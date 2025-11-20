@@ -1,36 +1,42 @@
-const mongoose = require("mongoose");
-const courseSchema = new mongoose.Schema(
+// models/Course.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
+const Teacher = require("./teacher");
+
+const Course = sequelize.define(
+  "Course",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     name: {
-      type: String,
-      required: true,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notEmpty: true,
+      },
+      unique: true,
     },
     code: {
-      type: String,
-      required: true,
-      trim: true,
-    },
-    teacherId: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Teacher",
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        notEmpty: true,
       },
-    ],
+      unique: true,
+    },
     description: {
-      type: String,
-      trim: true,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
-  { timestamps: true }
+  { paranoid: true, tableName: "courses", timestamps: true }
 );
-
-courseSchema.index({ teacherId: 1 });
-
-const Course = mongoose.model("Course", courseSchema);
 
 module.exports = Course;

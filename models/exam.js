@@ -1,36 +1,38 @@
-const mongoose = require("mongoose");
+// models/Exam.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
 
-const examSchema = new mongoose.Schema(
+const Exam = sequelize.define(
+  "Exam",
   {
-    title: {
-      type: String,
+    _id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
     },
-    courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course", // Reference to the Course model
+    title: {
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     date: {
-      type: Date,
-      required: true,
+      type: DataTypes.DATE,
+      allowNull: false,
     },
     duration: {
-      type: Number, // Duration in minutes
-      required: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      comment: "Duration in minutes",
     },
     totalMarks: {
-      type: Number,
-      required: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { paranoid: true, tableName: "exams", timestamps: true }
 );
-// Composite unique index on date, classId, and yearLevel to prevent overlapping exams
-examSchema.index({ courseId: 1 });
-const Exam = mongoose.model("Exam", examSchema);
+
 module.exports = Exam;

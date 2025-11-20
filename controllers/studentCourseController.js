@@ -6,7 +6,7 @@ const studentCourseController = createControllers(
   StudentCourse,
   "StudentCourse",
   [],
-  ["studentId", "courseId"]
+  ["student", "course"]
 );
 
 module.exports = studentCourseController;

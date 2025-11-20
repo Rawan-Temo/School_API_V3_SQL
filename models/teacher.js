@@ -1,47 +1,51 @@
-const mongoose = require("mongoose");
+// models/Teacher.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
+const User = require("./user");
+const Course = require("./course");
 
-const teacherSchema = new mongoose.Schema(
+const Teacher = sequelize.define(
+  "Teacher",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     firstName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     middleName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     lastName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     email: {
-      type: String,
-      required: true,
-    }, // Unique email for each teacher
+      type: DataTypes.STRING,
+      allowNull: false,
+      unique: true, // unique constraint
+      validate: {
+        isEmail: true,
+      },
+    },
     gender: {
-      type: String,
-      enum: ["Male", "Female"], // Options for gender
-      required: true,
+      type: DataTypes.ENUM("Male", "Female"),
+      allowNull: false,
     },
     phoneNumber: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { paranoid: true, tableName: "teachers", timestamps: true }
 );
-
-// Create the Teacher model
-teacherSchema.index(
-  { email: 1 },
-  { unique: true, partialFilterExpression: { active: true } }
-);
-
-const Teacher = mongoose.model("Teacher", teacherSchema);
 
 module.exports = Teacher;

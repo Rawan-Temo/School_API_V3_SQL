@@ -22,9 +22,9 @@ const userRouter = require("./routes/userRouter.js");
 const quizRouter = require("./routes/quizRouter.js");
 const studentCourseRouter = require("./routes/studentCourseRouter.js");
 // Import and initialize database connection
-const connection = require("./db");
+const { connectDB } = require("./db");
 const cookieParser = require("cookie-parser");
-connection();
+connectDB();
 
 // Middleware
 app.use(express.json()); // Built-in JSON parser

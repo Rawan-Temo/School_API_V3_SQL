@@ -1,38 +1,46 @@
-const mongoose = require("mongoose");
-const examResultSchema = new mongoose.Schema(
+// models/ExamResult.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
+
+const ExamResult = sequelize.define(
+  "ExamResult",
   {
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student", // Reference to the Student model
-      required: true,
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
     },
-    type: {
-      type: String,
-      enum: ["Exam", "Quiz"],
-      required: true,
+    studentId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     examId: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: "type", // Reference to the Exam model
-      required: true,
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
+    type: {
+      type: DataTypes.ENUM("Exam", "Quiz"),
+      allowNull: false,
     },
     score: {
-      type: Number,
-      required: true,
+      type: DataTypes.FLOAT,
+      allowNull: false,
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
   {
+    tableName: "exam_results",
     timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["studentId", "examId"],
+      },
+    ],
   }
 );
 
-// Create the ExamResult model
-// Create a compound index to ensure that the combination of student and exam is unique
-examResultSchema.index({ studentId: 1, examId: 1 }, { unique: true });
-
-const ExamResult = mongoose.model("ExamResult", examResultSchema);
 module.exports = ExamResult;

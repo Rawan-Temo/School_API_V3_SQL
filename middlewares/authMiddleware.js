@@ -11,7 +11,7 @@ const authenticateToken = async (req, res, next) => {
   jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, user) => {
     if (err) return res.sendStatus(401); // Invalid token
 
-    const foundUser = await User.findById(user.id);
+    const foundUser = await User.findByPk(user.id);
     if (!foundUser) return res.sendStatus(404); // User not found
 
     req.user = foundUser; // Attach user to request object
@@ -43,127 +43,134 @@ const isStudent = async (req, res, next) => {
   res.status(403).json({ message: "Access denied." });
 };
 
+// Attach student ID automatically in query for students
 const attachStudentQuery = async (req, res, next) => {
   try {
     if (req.user.role === "Student") {
       req.query.studentId = req.user.profileId;
     }
-    return next();
+    next();
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Attach student ID automatically in body for students
 const attachStudentBody = async (req, res, next) => {
   try {
     if (req.user.role === "Student") {
       req.body.studentId = req.user.profileId;
     }
-
-    return next();
+    next();
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Attach teacher ID automatically in query for teachers
 const attachTeacherQuery = async (req, res, next) => {
   try {
     if (req.user.role === "Teacher") {
       req.query.teacherId = req.user.profileId;
     }
-
-    return next();
+    next();
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Attach teacher ID automatically in body for teachers
 const attachTeacherBody = async (req, res, next) => {
   try {
     if (req.user.role === "Teacher") {
       req.body.teacherId = req.user.profileId;
     }
-
-    return next();
+    next();
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
+// Create Exam authorization for teachers
 const createTeacherExamAuth = async (req, res, next) => {
   try {
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
       const { courseId } = req.body;
 
-      // verify course exists and teacher belongs to it
-      const course = await Course.findOne({ _id: courseId, teacherId });
+      const course = await Course.findOne({
+        where: { id: courseId, teacherId },
+      });
+
       if (!course) {
         return res.status(403).json({
-          message: "Course not found or unautherized to create an exam for it ",
+          message: "Course not found or unauthorized to create an exam for it",
         });
       }
     }
-    return next();
+    next();
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Update Exam authorization for teachers
 const updateTeacherExamAuth = async (req, res, next) => {
   try {
     const examId = req.params.id;
+
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
       const { courseId } = req.query;
-      let course;
 
-      // find attendance
-      const exam = await Exam.findById(examId);
+      const exam = await Exam.findByPk(examId);
       if (!exam) {
-        return res.status(404).json({ message: "exam not found" });
+        return res.status(404).json({ message: "Exam not found" });
       }
 
-      if (courseId) {
-        course = await Course.findOne({
-          $or: [{ _id: exam.courseId }, { _id: courseId }],
+      const course = await Course.findOne({
+        where: {
+          id: courseId || exam.courseId,
           teacherId,
-        });
-      } else {
-        course = await Course.findOne({
-          _id: exam.courseId,
-          teacherId,
-        });
-      }
-      // find its course
+        },
+      });
+
       if (!course) {
         return res.status(403).json({
-          message: "Course not found or not autherized to add an exam to",
+          message: "Course not found or unauthorized to update this exam",
         });
       }
     }
-    return next();
+
+    next();
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
+
+// Delete Exam authorization for teachers
 const deleteTeacherExamAuth = async (req, res, next) => {
   try {
     const ids = req.body.ids;
+    if (!Array.isArray(ids) || !ids.length) {
+      return res.status(400).json({ message: "No exam IDs provided" });
+    }
 
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
 
-      // Get exams to delete
-      const exams = await Exam.find({ _id: { $in: ids } });
-
+      // Get exams
+      const exams = await Exam.findAll({ where: { id: ids } });
       if (!exams.length) {
         return res.status(404).json({ message: "Exams not found" });
       }
 
-      // Get courseIds from exams
+      // Get all courseIds from exams
       const courseIds = [...new Set(exams.map((e) => e.courseId))];
 
       // Check teacher owns all courseIds
-      const courses = await Course.find({
-        _id: { $in: courseIds },
-        teacherId,
+      const courses = await Course.findAll({
+        where: { id: courseIds, teacherId },
       });
 
       if (courses.length !== courseIds.length) {
@@ -173,9 +180,9 @@ const deleteTeacherExamAuth = async (req, res, next) => {
       }
     }
 
-    return next();
+    next();
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 

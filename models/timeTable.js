@@ -1,47 +1,57 @@
-const mongoose = require("mongoose");
+// models/Timetable.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
 
-const timetableSchema = new mongoose.Schema(
+const Timetable = sequelize.define(
+  "Timetable",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     classId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Class", // Reference to the Class model
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course", // Reference to the Course model
+      type: DataTypes.INTEGER,
+      allowNull: false,
     },
     dayOfWeek: {
-      type: String,
-      enum: [
+      type: DataTypes.ENUM(
         "Monday",
         "Tuesday",
         "Wednesday",
         "Thursday",
         "Friday",
         "Saturday",
-        "Sunday",
-      ], // Days of the week
-      required: true,
+        "Sunday"
+      ),
+      allowNull: false,
     },
     startTime: {
-      type: String, // e.g., "09:00"
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false, // e.g., "09:00"
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
   {
+    tableName: "timetables",
     timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["classId", "courseId", "dayOfWeek", "startTime"],
+        where: {
+          active: true,
+        },
+      },
+    ],
   }
 );
 
-// Create a unique partial index on active timetables
-timetableSchema.index(
-  { classId: 1, courseId: 1, dayOfWeek: 1, startTime: 1 },
-  { unique: true, partialFilterExpression: { active: true } }
-);
-
-const Timetable = mongoose.model("Timetable", timetableSchema);
 module.exports = Timetable;

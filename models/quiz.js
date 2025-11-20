@@ -1,64 +1,83 @@
-const mongoose = require("mongoose");
+// models/Quiz.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
+const Course = require("./course");
 
-const choiceSchema = new mongoose.Schema({
-  text: { type: String, required: true },
-  isCorrect: { type: Boolean, required: true },
-});
-
-const questionSchema = new mongoose.Schema({
-  text: {
-    type: String,
-    required: true,
-  },
-  type: {
-    type: String,
-    enum: ["multiple-choice", "true-false"],
-    required: true,
-  },
-  choices: [choiceSchema], // Array of choices for multiple-choice questions
-  correctAnswer: {
-    type: String,
-    required: function () {
-      return this.type === "true-false";
-    },
-  },
-  // Required for true/false questions
-});
-
-const quizSchema = new mongoose.Schema(
+// ==================
+// Quiz Model
+// ==================
+const Quiz = sequelize.define(
+  "Quiz",
   {
-    title: { type: String, required: true },
-    courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course", // Reference to the Class model
-    },
-    duration: {
-      type: Number, // Duration in minutes
-      required: true,
-    },
-    description: { type: String },
-    questions: [questionSchema],
-    date: {
-      type: Date,
-      required: true,
-    },
-    endDate: {
-      type: Date,
-      required: true,
-    },
-    totalMarks: {
-      type: Number,
-      default: 100,
-    },
-    active: {
-      type: Boolean,
-      default: true,
-    },
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    title: { type: DataTypes.STRING, allowNull: false },
+    courseId: { type: DataTypes.INTEGER, allowNull: true },
+    duration: { type: DataTypes.INTEGER, allowNull: false }, // in minutes
+    description: { type: DataTypes.STRING, allowNull: true },
+    date: { type: DataTypes.DATE, allowNull: false },
+    endDate: { type: DataTypes.DATE, allowNull: false },
+    totalMarks: { type: DataTypes.INTEGER, defaultValue: 100 },
+    active: { type: DataTypes.BOOLEAN, defaultValue: true },
   },
   {
+    tableName: "quizzes",
     timestamps: true,
   }
 );
 
-const Quiz = mongoose.model("Quiz", quizSchema);
-module.exports = Quiz;
+// ==================
+// Question Model
+// ==================
+const Question = sequelize.define(
+  "Question",
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    quizId: { type: DataTypes.INTEGER, allowNull: false },
+    text: { type: DataTypes.STRING, allowNull: false },
+    type: {
+      type: DataTypes.ENUM("multiple-choice", "true-false"),
+      allowNull: false,
+    },
+    correctAnswer: { type: DataTypes.STRING, allowNull: true }, // only for true-false
+  },
+  {
+    tableName: "questions",
+    timestamps: true,
+  }
+);
+
+// ==================
+// Choice Model
+// ==================
+const Choice = sequelize.define(
+  "Choice",
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    questionId: { type: DataTypes.INTEGER, allowNull: false },
+    text: { type: DataTypes.STRING, allowNull: false },
+    isCorrect: { type: DataTypes.BOOLEAN, allowNull: false },
+  },
+  {
+    tableName: "choices",
+    timestamps: true,
+  }
+);
+
+// ==================
+// Associations
+// ==================
+
+// Quiz -> Course
+Course.hasMany(Quiz, { foreignKey: "courseId" });
+Quiz.belongsTo(Course, { foreignKey: "courseId" });
+
+// Quiz -> Question
+Quiz.hasMany(Question, { foreignKey: "quizId", onDelete: "CASCADE" });
+Question.belongsTo(Quiz, { foreignKey: "quizId" });
+
+// Question -> Choice
+Question.hasMany(Choice, { foreignKey: "questionId", onDelete: "CASCADE" });
+Choice.belongsTo(Question, { foreignKey: "questionId" });
+
+// Export all in one file
+module.exports = { Quiz, Question, Choice };

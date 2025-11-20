@@ -1,165 +1,131 @@
-const { default: mongoose } = require("mongoose");
 const Attendance = require("../models/attendance");
 const Course = require("../models/course");
 const StudentCourse = require("../models/studentCourse");
-const apiFeatures = require("../utils/apiFeatures");
-const createController = require("../utils/createControllers");
+const Student = require("../models/student");
 const APIFeatures = require("../utils/apiFeatures");
-// create default controllers for Attendance model
+const { Op } = require("sequelize");
+const createController = require("../utils/createControllers");
 
-const attendanceController = createController(Attendance, "attendance", "", [
-  "studentId",
-  "courseId",
-]);
+// Default CRUD via your createController
+const attendanceController = createController(
+  Attendance,
+  "attendance",
+  ["status"], // you can add fields to search
+  ["student", "course"] // associations
+);
 
+// 📌 Count Attendance Records
 const countData = async (req, res) => {
   try {
-    const numberOfDocuments = await Attendance.countDocuments({ active: true });
-    // Step 2: Return success response
+    const count = await Attendance.count({ where: { active: true } });
+
     res.status(200).json({
       status: "success",
-      numberOfDocuments,
+      numberOfDocuments: count,
     });
   } catch (error) {
     res.status(400).json({ status: "fail", message: error.message });
   }
 };
-const updateAttendance = async (req, res) => {
-  try {
-    const attendanceId = req.params.id;
-    if (req.user.role === "Teacher") {
-      const teacherId = req.user.profileId;
-      const { courseId } = req.query;
-      let course;
 
-      // find attendance
-      const attendance = await Attendance.findById(attendanceId);
-      if (!attendance) {
-        return res.status(404).json({ message: "Attendance not found" });
-      }
-
-      if (courseId) {
-        course = await Course.findOne({
-          $or: [{ _id: attendance.courseId }, { _id: courseId }],
-          teacherId,
-        });
-      } else {
-        course = await Course.findOne({
-          _id: attendance.courseId,
-          teacherId,
-        });
-      }
-      // find its course
-      if (!course) {
-        return res.status(404).json({ message: "Course not found" });
-      }
-
-      // verify teacher belongs to course
-      if (
-        !course.teacherId
-          .map((t) => t.toString())
-          .includes(teacherId.toString())
-      ) {
-        return res.status(403).json({ message: "Not allowed" });
-      }
-    }
-
-    const updated = await Attendance.findByIdAndUpdate(attendanceId, req.body, {
-      new: true,
-      runValidators: true,
-    });
-
-    return res.json(updated);
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ message: "Server error" });
-  }
-};
+// 📌 Create Attendance with Teacher Verification
 const createAttendance = async (req, res) => {
   try {
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
       const { courseId } = req.body;
 
-      // verify course exists and teacher belongs to it
-      const course = await Course.findById(courseId);
-      if (!course) {
-        return res.status(404).json({ message: "Course not found" });
-      }
+      const course = await Course.findOne({
+        where: { id: courseId },
+      });
 
-      if (
-        !course.teacherId
-          .map((t) => t.toString())
-          .includes(teacherId.toString())
-      ) {
+      if (!course) return res.status(404).json({ message: "Course not found" });
+
+      // Verify teacher teaches this course
+      const teacherCourses = await course.getTeacherId();
+      console.log(teacherCourses);
+      if (!teacherCourses.map((t) => t.id).includes(teacherId))
         return res.status(403).json({ message: "Not allowed" });
-      }
     }
 
     const attendance = await Attendance.create(req.body);
     return res.status(201).json(attendance);
   } catch (err) {
-    console.error(err);
-    if (err.code === 11000) {
-      return res.status(400).json({ message: err.message });
-    }
     return res.status(500).json({ message: err.message });
   }
 };
 
-const allAttendances = async (req, res) => {
+// 📌 Update Attendance Only If Teacher Owns the Course
+const updateAttendance = async (req, res) => {
   try {
-    const { courseId, startDate, endDate } = req.query;
+    const id = req.params.id;
 
-    // Teacher check
+    const attendance = await Attendance.findByPk(id);
+    if (!attendance)
+      return res.status(404).json({ message: "Attendance not found" });
+
     if (req.user.role === "Teacher") {
-      const teacherId = req.user.id;
-      const course = await Course.findById(courseId);
-      if (!course) return res.status(404).json({ message: "Course not found" });
-      if (
-        !course.teacherId
-          .map((t) => t.toString())
-          .includes(teacherId.toString())
-      )
+      const teacherId = req.user.profileId;
+
+      const course = await Course.findOne({
+        where: { id: attendance.courseId },
+      });
+
+      const teacherCourses = await course.getTeachers();
+      if (!teacherCourses.map((t) => t.id).includes(teacherId))
         return res.status(403).json({ message: "Not allowed" });
     }
 
-    // Get all student IDs for this course
-    const students = await StudentCourse.find({ courseId })
-      .sort({ date: -1 })
-      .select("studentId");
-    // Get unique student IDs
-    const studentIds = [
-      ...new Set(students.map((s) => s.studentId.toString())),
-    ];
-    const studentObjectIds = studentIds.map(
-      (id) => new mongoose.Types.ObjectId(id)
-    );
-    console.log(studentObjectIds);
-    // Build query
-    const query = { studentId: { $in: studentObjectIds } };
+    const updated = await Attendance.update(req.body, {
+      where: { id },
+      returning: true,
+    });
+    return res.json(updated[1][0]);
+  } catch (err) {
+    return res.status(500).json({ message: err.message });
+  }
+};
 
-    // Pagination
+// 📌 Get Attendance List For Course With Pagination + Student Names
+const allAttendances = async (req, res) => {
+  try {
+    const { courseId } = req.query;
+    if (!courseId)
+      return res.status(400).json({ message: "courseId is required" });
 
-    const features = new APIFeatures(
-      Attendance.find(query).populate({
-        path: "studentId",
-        select: "firstName lastName",
-      }),
-      req.query
-    ).filter();
-    const attendances = await features.query;
+    // Teacher constraint
+    if (req.user.role === "Teacher") {
+      const teacherId = req.user.profileId;
+      const course = await Course.findByPk(courseId);
 
-    console.log(studentObjectIds);
-    console.log(attendances);
+      const teacherCourses = await course.getTeachers();
+      if (!teacherCourses.map((t) => t.id).includes(teacherId))
+        return res.status(403).json({ message: "Not allowed" });
+    }
+
+    // Get enrolled student IDs
+    const students = await StudentCourse.findAll({
+      where: { courseId },
+      attributes: ["studentId"],
+    });
+
+    const studentIds = students.map((s) => s.studentId);
+
+    const features = new APIFeatures(Attendance, req.query, [
+      { model: Student, as: "student", attributes: ["firstName", "lastName"] },
+    ]).filter();
+
+    features.options.where.studentId = { [Op.in]: studentIds };
+
+    const [data, total] = await features.execute();
 
     res.status(200).json({
       status: "success",
-      results: attendances.length,
-      data: attendances,
+      total,
+      results: data.length,
+      data,
     });
   } catch (err) {
-    console.error(err);
     res.status(500).json({ message: err.message });
   }
 };

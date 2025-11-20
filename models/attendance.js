@@ -1,42 +1,49 @@
-const mongoose = require("mongoose");
+// models/Attendance.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
 
-const attendanceSchema = new mongoose.Schema(
+const Attendance = sequelize.define(
+  "Attendance",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
     studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
-      required: true,
-    }, // Reference to Student
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      required: true,
-    }, // Reference to Course
-
+      type: DataTypes.INTEGER,
+      allowNull: false,
+    },
     date: {
-      type: Date,
-      required: true,
+      type: DataTypes.DATE,
+      allowNull: false,
     },
     status: {
-      type: String,
-      enum: ["Present", "Absent", "Excused", "Late"],
-      required: true,
+      type: DataTypes.ENUM("Present", "Absent", "Excused", "Late"),
+      allowNull: false,
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
   {
+    tableName: "attendances",
     timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["studentId", "courseId", "date"],
+        where: {
+          active: true,
+        },
+      },
+    ],
   }
 );
 
-// Index to ensure a student can't be marked multiple times for the same Course on the same day
-attendanceSchema.index(
-  { studentId: 1, courseId: 1, date: 1 },
-  { unique: true, partialFilterExpression: { active: true } }
-);
-
-const Attendance = mongoose.model("Attendance", attendanceSchema);
 module.exports = Attendance;

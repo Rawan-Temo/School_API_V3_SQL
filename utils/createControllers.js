@@ -1,63 +1,31 @@
 // utils/controllerFactory.js
-const { validate } = require("../models/teacher");
 const APIFeatures = require("./apiFeatures");
+const { Op } = require("sequelize");
 const { search } = require("./search");
 
-const createController = (Model, modelName, searchFields, populate = "") => {
+const createController = (Model, modelName, searchFields, include = []) => {
   const name = modelName.toLowerCase();
-
-  // helper: build parsed query object for filtering & counting
-  const buildParsedQuery = (reqQuery) => {
-    const queryObj = { ...reqQuery };
-    const excludedFields = ["page", "sort", "limit", "fields", "populate"];
-    excludedFields.forEach((el) => delete queryObj[el]);
-
-    for (let key in queryObj) {
-      if (/\b(gte|gt|lte|lt)\b/.test(key)) continue;
-
-      if (key.endsWith("_multi")) {
-        const field = key.replace("_multi", "");
-        let values = queryObj[key].split(",");
-        console.log(values);
-        queryObj[field] = { $in: values };
-        delete queryObj[key];
-      }
-    }
-
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
-    return JSON.parse(queryStr);
-  };
 
   // Get all documents
   const getAll = async (req, res) => {
-    if (req.query.search) {
-      await search(Model, searchFields, populate, req, res);
-      return;
-    }
     try {
-      const parsedQuery = buildParsedQuery(req.query);
-      let query = Model.find();
-      if (populate) {
-        query = query.populate(populate);
+      if (req.query.search) {
+        return await search(Model, modelName, searchFields, req, res, include);
       }
 
-      const features = new APIFeatures(query, req.query)
+      const features = new APIFeatures(Model, req.query, include)
         .filter()
         .sort()
         .limitFields()
         .paginate();
 
-      const [docs, count] = await Promise.all([
-        features.query.lean(),
-        Model.countDocuments(parsedQuery),
-      ]);
-      // temp way of doing this not ideal need a better way
+      const [docs, count] = await features.execute();
 
+      // Hide sensitive fields for user
       if (modelName === "user") {
         docs.forEach((doc) => {
-          doc.password = undefined; // Exclude password from the response
-          doc.refreshToken = undefined; // Exclude refreshToken from the response
+          if (doc.password) doc.password = undefined;
+          if (doc.refreshToken) doc.refreshToken = undefined;
         });
       }
 
@@ -68,19 +36,22 @@ const createController = (Model, modelName, searchFields, populate = "") => {
         data: docs,
       });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };
 
-  // Create new document
+  // Create one
   const createOne = async (req, res) => {
     try {
+      console.log(req.body);
       const newDoc = await Model.create(req.body);
       res.status(201).json({
         status: "success",
         data: newDoc,
       });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };
@@ -88,171 +59,84 @@ const createController = (Model, modelName, searchFields, populate = "") => {
   // Get one by ID
   const getOneById = async (req, res) => {
     try {
-      let _id = req.params.id;
+      const id = req.params.id;
+
+      // Optional student access restriction
       if (modelName === "student" && req.user.role === "Student") {
-        if (_id !== String(req.user.profileId)) {
+        if (id !== String(req.user.profileId)) {
           return res.status(403).json({
             status: "fail",
             message: "You Think You Are Smart Get Gud",
           });
         }
       }
-      let query = Model.findOne({ _id, ...req.query });
-      if (populate) {
-        query = query.populate(populate);
-      }
-      const doc = await query.lean();
 
-      if (!doc) {
-        return res.status(404).json({ message: `${name} not found` });
-      }
-      res.status(200).json({
-        status: "success",
-        data: doc,
-      });
+      const doc = await Model.findByPk(id, { include });
+
+      if (!doc) return res.status(404).json({ message: `${name} not found` });
+
+      res.status(200).json({ status: "success", data: doc });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };
 
-  // Update one by ID
+  // Update one
   const updateOne = async (req, res) => {
     try {
-      let query = Model.findByIdAndUpdate(req.params.id, req.body, {
-        new: true,
-        runValidators: true,
-      });
+      const id = req.params.id;
+      const doc = await Model.findByPk(id);
 
-      if (populate) {
-        query = query.populate(populate);
-      }
-      const updatedDoc = await query;
+      if (!doc) return res.status(404).json({ message: `${name} not found` });
 
-      if (!updatedDoc) {
-        return res.status(404).json({ message: `${name} not found` });
-      }
-      res.status(200).json({
-        status: "success",
-        data: updatedDoc,
-      });
+      await doc.update(req.body);
+      const updatedDoc = await Model.findByPk(id, { include });
+
+      res.status(200).json({ status: "success", data: updatedDoc });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };
 
-  // deleteOne one (soft delete)
-  const deleteOne = async (req, res) => {
-    try {
-      let query = Model.findByIdAndDelete(req.params.id);
-      const doc = await query;
-      if (!doc) {
-        return res.status(404).json({ message: `${name} not found` });
-      }
-      res.status(204).json({
-        status: "success",
-      });
-    } catch (err) {
-      res.status(500).json({ message: err.message });
-    }
-  };
+  // Soft delete (deactivate)
   const deactivateOne = async (req, res) => {
     try {
-      let query = Model.findByIdAndUpdate(
-        req.params.id,
-        { active: false },
-        { new: true }
-      );
+      const id = req.params.id;
+      const doc = await Model.findByPk(id);
 
-      const doc = await query;
+      if (!doc) return res.status(404).json({ message: `${name} not found` });
 
-      if (!doc) {
-        return res.status(404).json({ message: `${name} not found` });
-      }
+      await doc.update({ active: false });
       res.status(200).json({
         status: "success",
         message: `${name} deactivated`,
         data: doc,
       });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };
 
-  const deactivateMany = async (req, res) => {
+  // Hard delete
+  const deleteOne = async (req, res) => {
     try {
-      const Ids = req.body.ids;
-      let result;
+      const id = req.params.id;
+      const deleted = await Model.destroy({ where: { id } });
 
-      // Validate input
-      if (!Ids || !Array.isArray(Ids) || Ids.length === 0) {
-        return res.status(400).json({
-          status: "fail",
-          message: "Invalid input: 'ids' must be a non-empty array.",
-        });
-      }
-      result = await Model.updateMany(
-        { _id: { $in: Ids } }, // Match documents with IDs in the array
-        { $set: { active: false } } // Soft delete by setting 'active' to false
-      );
+      if (!deleted)
+        return res.status(404).json({ message: `${name} not found` });
 
-      // Check if any documents were modified
-      if (result.modifiedCount === 0) {
-        return res.status(404).json({
-          status: "fail",
-          message: `${Ids.length} Ids provided, but no matches found or they were already deactivated.`,
-        });
-      }
-
-      // Step 2: Return success response
-      return res.status(200).json({
-        status: "success",
-        message: ` ${Ids.length}  deleted successfully.`,
-        data: null,
-      });
-    } catch (error) {
-      // Handle unexpected errors
-      console.error("Error in deActivateMany:", error);
-      return res.status(500).json({
-        status: "fail",
-        message: "An error occurred while deactivating.",
-        error: error.message,
-      });
-    }
-  };
-  const deleteMany = async (req, res) => {
-    try {
-      const Ids = req.body.ids;
-      let result;
-
-      // Validate input
-      if (!Ids || !Array.isArray(Ids) || Ids.length === 0) {
-        return res.status(400).json({
-          status: "fail",
-          message: "Invalid input: 'ids' must be a non-empty array.",
-        });
-      }
-      result = await Model.deleteMany(
-        { _id: { $in: Ids } } // Match documents with IDs in the array
-      );
-
-      // Check if any documents were modified
-      if (result.deletedCount === 0) {
-        return res.status(404).json({
-          status: "fail",
-          message: `${Ids.length} Ids provided, but no matches found or they were already deleted.`,
-        });
-      }
-
-      // Step 2: Return success response
-      return res.status(200).json({
-        status: "success",
-        message: ` ${result.deletedCount}  deleted successfully.`,
-        data: null,
-      });
+      res.status(204).json({ status: "success" });
     } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };
+
+  // Create many
   const createMany = async (req, res) => {
     try {
       const docs = req.body.docs;
@@ -262,16 +146,80 @@ const createController = (Model, modelName, searchFields, populate = "") => {
           message: "Invalid input: 'docs' must be a non-empty array.",
         });
       }
-      const newDocs = await Model.insertMany(docs, {
-        ordered: false,
-        validateBeforeSave: true,
-      });
+
+      const newDocs = await Model.bulkCreate(docs, { validate: true });
       res.status(201).json({
         status: "success",
         results: newDocs.length,
         data: newDocs,
       });
     } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  // Deactivate many
+  const deactivateMany = async (req, res) => {
+    try {
+      const ids = req.body.ids;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Invalid input: 'ids' must be a non-empty array.",
+        });
+      }
+
+      const [updatedCount] = await Model.update(
+        { active: false },
+        { where: { id: { [Op.in]: ids } } }
+      );
+
+      if (!updatedCount) {
+        return res.status(404).json({
+          status: "fail",
+          message: "No matching records found or already deactivated.",
+        });
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: `${updatedCount} ${name}(s) deactivated successfully`,
+      });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: err.message });
+    }
+  };
+
+  // Delete many
+  const deleteMany = async (req, res) => {
+    try {
+      const ids = req.body.ids;
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({
+          status: "fail",
+          message: "Invalid input: 'ids' must be a non-empty array.",
+        });
+      }
+
+      const deletedCount = await Model.destroy({
+        where: { id: { [Op.in]: ids } },
+      });
+
+      if (!deletedCount) {
+        return res.status(404).json({
+          status: "fail",
+          message: "No matching records found or already deleted.",
+        });
+      }
+
+      res.status(200).json({
+        status: "success",
+        message: `${deletedCount} ${name}(s) deleted successfully`,
+      });
+    } catch (err) {
+      console.error(err);
       res.status(500).json({ message: err.message });
     }
   };

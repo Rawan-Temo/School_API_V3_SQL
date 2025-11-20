@@ -1,69 +1,100 @@
+const { Op } = require("sequelize");
+
 class APIFeatures {
-  constructor(query, queryString) {
-    this.query = query;
-    this.queryString = queryString;
+  constructor(model, queryString, include = []) {
+    this.model = model; // Sequelize model
+    this.queryString = queryString; // req.query
+    this.options = {
+      where: {},
+      include,
+    };
   }
 
   filter() {
     const queryObj = { ...this.queryString };
-    const excludedFields = [
-      "page",
-      "sort",
-      "limit",
-      "fields",
-      "month",
-      "search",
-    ];
+    const excludedFields = ["page", "sort", "limit", "fields", "search"];
     excludedFields.forEach((el) => delete queryObj[el]);
 
-    for (let key in queryObj) {
-      if (/\b(gte|gt|lte|lt)\b/.test(key)) continue;
+    for (const key of Object.keys(queryObj)) {
+      const value = queryObj[key];
 
+      // Handle operators like ?id[gte]=3
+      if (value && typeof value === "object") {
+        for (const op in value) {
+          if (["gte", "gt", "lte", "lt"].includes(op)) {
+            if (!this.options.where[key]) this.options.where[key] = {};
+            this.options.where[key][Op[op]] = isNaN(value[op])
+              ? value[op]
+              : Number(value[op]);
+          }
+        }
+        continue; // skip to next key
+      }
+
+      // Handle multi-value fields: field_multi=a,b,c
       if (key.endsWith("_multi")) {
         const field = key.replace("_multi", "");
-        let values = queryObj[key].split(",");
-        queryObj[field] = { $in: values };
-        delete queryObj[key];
+        const values = String(value)
+          .split(",")
+          .map((v) => (isNaN(v) ? v : Number(v)));
+        this.options.where[field] = { [Op.in]: values };
+        continue;
       }
-    }
-    //1) FILTER2
-    let queryStr = JSON.stringify(queryObj);
-    queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g, (match) => `$${match}`);
 
-    this.query = this.query.find(JSON.parse(queryStr));
+      // Simple equality
+      this.options.where[key] = isNaN(value) ? value : Number(value);
+    }
+
     return this;
   }
 
-  //2) SORT
   sort() {
     if (this.queryString.sort) {
-      const sortBy = this.queryString.sort.split(",").join(" ");
-      this.query = this.query.sort(sortBy);
+      // Convert comma-separated list into array of [field, direction]
+      const order = this.queryString.sort.split(",").map((field) => {
+        if (field.startsWith("-")) return [field.slice(1), "DESC"];
+        return [field, "ASC"];
+      });
+      this.options.order = order;
     } else {
-      this.query = this.query.sort("_id");
+      this.options.order = [["id", "ASC"]]; // default sort
     }
     return this;
   }
-  // //3) FIELD LIMITING
 
   limitFields() {
     if (this.queryString.fields) {
-      const fields = this.queryString.fields.split(",").join(" ");
-      this.query = this.query.select(fields);
-    } else {
-      this.query = this.query.select("-__v");
+      this.options.attributes = this.queryString.fields.split(",");
     }
     return this;
   }
 
-  //4) PAGE
   paginate() {
-    const page = this.queryString.page * 1 || 1;
-    const limit = this.queryString.limit * 1 || 100;
-    const skip = (page - 1) * limit;
-    this.query = this.query.skip(skip).limit(limit);
-
+    const page = parseInt(this.queryString.page) || 1;
+    const limit = parseInt(this.queryString.limit) || 100;
+    const offset = (page - 1) * limit;
+    this.options.limit = limit;
+    this.options.offset = offset;
     return this;
+  }
+
+  async execute() {
+    // Returns [rows, count]
+    console.log(this.options);
+    const rows = await this.model.findAll(this.options);
+    const count = await this.model.count({ where: this.options.where });
+    return [rows, count];
+  }
+  async findAll() {
+    const rows = await this.model.findAll(this.options);
+    return rows;
+  }
+  async countWithInclude(include) {
+    const count = await this.model.count({
+      where: this.options.where,
+      include,
+    });
+    return count;
   }
 }
 

@@ -16,26 +16,16 @@ router.get(
   attendanceController.countData
 );
 
-// Route for all attendance records
 router
   .route("/")
-  .get(authenticateToken, isTeacher, attendanceController.getAll) // Get all attendance records
-  .post(authenticateToken, isTeacher, attendanceController.createAttendance); // Add a new attendance record
-
-router
-  .route("/filtered")
-  .get(authenticateToken, isTeacher, attendanceController.allAttendances);
+  .get(authenticateToken, isTeacher, attendanceController.getAll)
+  .post(authenticateToken, isTeacher, attendanceController.createAttendance);
 
 router
   .route("/delete-many")
   .patch(authenticateToken, isAdmin, attendanceController.deleteMany);
-// Route for specific attendance records by ID
 router
   .route("/:id")
-  .patch(authenticateToken, isTeacher, attendanceController.updateAttendance); // Update a specific attendance record
-
-// Route to deactivate an attendance record by ID
-
-// Route to delete an attendance record by ID
+  .patch(authenticateToken, isTeacher, attendanceController.updateAttendance);
 
 module.exports = router;

@@ -1,14 +1,17 @@
-const mongoose = require("mongoose");
+require("dotenv").config();
+const { sequelize } = require("./sequelize");
 const createDefaultAdmin = require("./utils/createDefaultAdmin");
-const DB = process.env.DB.replace("<db_password>", process.env.DB_PASSWORD);
 
-module.exports = async function connection() {
+const connectDB = async () => {
   try {
-    await mongoose.connect(DB);
+    await sequelize.authenticate();
+    console.log("🟢 Database connected!");
+    await sequelize.sync({ alter: true }); // creates/updates tables
+    console.log("Tables synced");
     createDefaultAdmin();
-    console.log("DB CONNECTION");
   } catch (error) {
-    console.log(error);
+    console.error("🔴 Database connection failed:", error.message);
   }
 };
-2;
+
+module.exports = { connectDB };

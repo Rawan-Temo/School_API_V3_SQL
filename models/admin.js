@@ -1,34 +1,36 @@
-const mongoose = require("mongoose");
+// models/Admin.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
+const User = require("./user");
 
-const adminSchema = new mongoose.Schema(
+const Admin = sequelize.define(
+  "Admin",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     firstName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     lastName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     email: {
-      type: String,
-      required: true,
-    },
-    active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        isEmail: true, // optional: ensures valid email format
+      },
     },
   },
   {
-    timestamps: true,
+    paranoid: true,
+    tableName: "admins",
+    timestamps: true, // adds createdAt and updatedAt
   }
 );
-// Create a unique partial index on email for active users only
-adminSchema.index(
-  { email: 1 },
-  { unique: true, partialFilterExpression: { active: true } }
-);
-
-// Create the Admin model
-const Admin = mongoose.model("Admin", adminSchema);
 module.exports = Admin;

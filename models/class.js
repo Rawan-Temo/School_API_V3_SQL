@@ -1,26 +1,22 @@
-const mongoose = require("mongoose");
+// models/Class.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
 
-const classSchema = new mongoose.Schema(
+const Class = sequelize.define(
+  "Class",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     name: {
-      type: String,
-      required: true,
-    }, // e.g., "Room 101"
-
-    active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.STRING,
+      unique: true,
+      allowNull: false,
     },
   },
-  {
-    timestamps: true,
-  }
+  { paranoid: true, tableName: "classes", timestamps: true }
 );
-
-classSchema.index(
-  { name: 1 },
-  { unique: true, partialFilterExpression: { active: true } }
-);
-const Class = mongoose.model("Class", classSchema);
 
 module.exports = Class;

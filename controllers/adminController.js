@@ -1,7 +1,10 @@
 const Admin = require("../models/admin");
 const createController = require("../utils/createControllers");
 // Get all admin s
-const adminController = createController(Admin, "Admin", ["name", "email"]);
+const adminController = createController(Admin, "Admin", [
+  "firstName",
+  "email",
+]);
 
 const countData = async (req, res) => {
   try {

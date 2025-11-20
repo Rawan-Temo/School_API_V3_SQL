@@ -10,8 +10,8 @@ router.get("/count", authenticateToken, courseController.countData);
 
 router
   .route("/")
-  .get(authenticateToken, isStudent, courseController.getAll)
-  .post(authenticateToken, isAdmin, courseController.createOne);
+  .get(authenticateToken, isStudent, courseController.allCourses)
+  .post(authenticateToken, isAdmin, courseController.createCourse);
 router
   .route("/deactivate-many")
   .patch(authenticateToken, isAdmin, courseController.deactivateMany);
@@ -26,8 +26,8 @@ router
 
 router
   .route("/:id")
-  .get(authenticateToken, isStudent, courseController.getOneById)
-  .patch(authenticateToken, isAdmin, courseController.updateOne)
-  .delete(authenticateToken, isAdmin, courseController.deleteOne);
+  .get(authenticateToken, isStudent, courseController.getCourseById)
+  .patch(authenticateToken, isAdmin, courseController.updateCourse)
+  .delete(authenticateToken, isAdmin, courseController.deleteCourse);
 
 module.exports = router;

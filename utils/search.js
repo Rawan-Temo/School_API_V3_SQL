@@ -1,71 +1,55 @@
+const { Op } = require("sequelize");
 const APIFeatures = require("./apiFeatures");
+const User = require("../models/user");
 
-const search = async (model, fields, populate, req, res) => {
+const search = async (model, modelName, fields, req, res, include = []) => {
   try {
-    const query = req.query.search; // The search term from the client
-
-    // Ensure the search query is provided
+    const query = req.query.search;
     if (!query) {
       return res.status(400).json({
-        status: "error",
+        status: "fail",
         message: "Search query is required",
       });
     }
 
-    const tokens = query.split(/\s+/).map((word) => new RegExp(word, "i")); // Split the query into tokens
+    // Split search query into tokens
+    const tokens = query.split(/\s+/);
 
-    const searchConditions = tokens.map((token) => ({
-      $or: fields.map((field) => ({ [field]: token })),
-    }));
-    let populateObject = populate;
-    try {
-      populateObject = eval(`(${populate})`);
-    } catch (err) {
-      // If evaluation fails, fallback to the string as it is
+    // Build Sequelize OR conditions for all tokens and fields
+    const searchWhere = {
+      [Op.and]: tokens.map((token) => ({
+        [Op.or]: fields.map((field) => ({
+          [field]: { [Op.like]: `%${token}%` },
+        })),
+      })),
+    };
+
+    // Merge search conditions into req.query for APIFeatures
+    const features = new APIFeatures(model, req.query, include);
+    features.options.where = { ...features.options.where, ...searchWhere };
+
+    // Apply filter, sort, fields, and pagination
+    features.filter().sort().limitFields().paginate();
+
+    // Execute query
+    const [results, total] = await features.execute();
+    // Hide sensitive fields for user
+    if (modelName === "user") {
+      results.forEach((doc) => {
+        if (doc.password) doc.password = undefined;
+        if (doc.refreshToken) doc.refreshToken = undefined;
+      });
     }
-
-    console.log(
-      "Search conditions:",
-      JSON.stringify(searchConditions, null, 2)
-    );
-    // Define the features query
-    let features = new APIFeatures(
-      model
-        .find({
-          $and: searchConditions,
-        })
-        .populate(populateObject || ""),
-      req.query
-    )
-      .filter()
-      .sort()
-      .limitFields()
-      .paginate();
-
-    // Count documents matching the query
-    const totalResults = new APIFeatures(
-      model.countDocuments({
-        $and: searchConditions,
-      }),
-      req.query
-    ).filter();
-
-    // Execute the query to fetch paginated results
-    let [results, total] = await Promise.all([
-      features.query.lean(),
-      totalResults.query.countDocuments(),
-    ]);
-    // Return the response
-    return res.status(200).json({
+    res.status(200).json({
       status: "success",
-      total, // Total number of results found
-      results: results.length, // Number of results in the current page
-      data: results, // The matching documents
+      total,
+      results: results.length,
+      data: results,
     });
   } catch (err) {
-    console.error("Error during search:", err); // Log error for debugging
-    return res.status(500).json({
-      status: "error",
+    console.error("Sequelize search error:", err);
+    res.status(500).json({
+      status: "fail",
       message: err.message || "Something went wrong during the search",
     });
   }

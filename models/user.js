@@ -1,47 +1,47 @@
-const mongoose = require("mongoose");
+// models/User.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
 
-const userSchema = new mongoose.Schema(
+const User = sequelize.define(
+  "User",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     username: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING(50),
+      allowNull: false,
       unique: true,
-      trim: true,
-      minlength: 3,
-      maxlength: 50,
+      validate: {
+        len: [3, 50],
+      },
     },
     password: {
-      type: String,
-      required: true,
-      minlength: 6,
+      type: DataTypes.STRING,
+      allowNull: false,
+      validate: {
+        len: [6, 255], // max length optional
+      },
     },
     role: {
-      type: String,
-      enum: ["Student", "Teacher", "Admin"], // Roles can be student, teacher, or admin
-      required: true,
+      type: DataTypes.ENUM("Student", "Teacher", "Admin"),
+      allowNull: false,
     },
-    // Reference to either Student, Teacher, or Admin model based on the role
     profileId: {
-      type: mongoose.Schema.Types.ObjectId,
-      refPath: "role", // Dynamically references either Student, Teacher, or Admin based on the role
+      type: DataTypes.INTEGER,
     },
-    // Reference to either Student, Teacher, or Admin model based on the role
     refreshToken: {
-      type: String,
-      default: null,
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: null,
     },
   },
   {
-    timestamps: true,
+    tableName: "users",
+    timestamps: true, // createdAt, updatedAt
   }
 );
 
-// Middleware to update the updatedAt field on save
-userSchema.pre("save", function (next) {
-  this.updatedAt = Date.now();
-  next();
-});
-
-// Create the User model
-const User = mongoose.model("User", userSchema);
 module.exports = User;

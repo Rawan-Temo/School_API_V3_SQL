@@ -1,61 +1,72 @@
-const mongoose = require("mongoose");
+// models/Student.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
+const User = require("./user");
 
-const studentSchema = new mongoose.Schema(
+const Student = sequelize.define(
+  "Student",
   {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true,
+    },
     firstName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     middleName: {
-      type: String,
-      required: true, // Fixed the typo from requried to required
+      type: DataTypes.STRING,
+      allowNull: false,
     },
     lastName: {
-      type: String,
-      required: true,
+      type: DataTypes.STRING,
+      allowNull: false,
     },
-
     dateOfBirth: {
-      type: Date,
-      required: true,
+      type: DataTypes.DATE,
+      allowNull: false,
     },
     phone: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     email: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
+      validate: {
+        isEmail: true,
+      },
     },
     gender: {
-      type: String,
-      enum: ["Male", "Female"], // Options for gender
-      required: true,
+      type: DataTypes.ENUM("Male", "Female"),
+      allowNull: false,
     },
     address: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     enrollmentDate: {
-      type: Date,
-      default: Date.now, // Automatically set to current date
+      type: DataTypes.DATE,
+      defaultValue: DataTypes.NOW,
     },
     guardianName: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     guardianPhone: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     guardianRelationship: {
-      type: String,
+      type: DataTypes.STRING,
+      allowNull: true,
     },
     active: {
-      type: Boolean,
-      default: true,
+      type: DataTypes.BOOLEAN,
+      defaultValue: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { paranoid: true, tableName: "students", timestamps: true }
 );
-
-// Optional: Add compound index for common query patterns
-const Student = mongoose.model("Student", studentSchema);
 module.exports = Student;

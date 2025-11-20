@@ -1,25 +1,22 @@
-const mongoose = require("mongoose");
+// models/StudentCourse.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../sequelize");
 
-const studentCourseSchema = new mongoose.Schema(
+const StudentCourse = sequelize.define(
+  "StudentCourse",
   {
-    studentId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Student",
-      required: true,
-    }, // Reference to Student
-    courseId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Course",
-      required: true,
-    },
-
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    studentId: { type: DataTypes.INTEGER, allowNull: false },
+    courseId: { type: DataTypes.INTEGER, allowNull: false },
     status: {
-      type: String,
-      enum: ["Active", "Completed", "Dropped"],
+      type: DataTypes.ENUM("Active", "Completed", "Dropped"),
+      allowNull: true,
     },
   },
-  { timestamps: true }
+  {
+    tableName: "student_courses",
+    timestamps: true,
+  }
 );
 
-const StudentCourse = mongoose.model("StudentCourse", studentCourseSchema);
 module.exports = StudentCourse;
