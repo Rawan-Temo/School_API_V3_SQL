@@ -34,7 +34,7 @@ StudentCourse.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 // ==========
 // One Course can have many Exams
 Course.hasMany(Exam, { foreignKey: "courseId" });
-Exam.belongsTo(Course, { foreignKey: "courseId" });
+Exam.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 
 // Student -> ExamResult
 Student.hasMany(ExamResult, { foreignKey: "studentId" });
@@ -46,11 +46,11 @@ ExamResult.belongsTo(Exam, { foreignKey: "examId" });
 
 // Class -> Timetable
 Class.hasMany(Timetable, { foreignKey: "classId" });
-Timetable.belongsTo(Class, { foreignKey: "classId" });
+Timetable.belongsTo(Class, { foreignKey: "classId", as: "class" });
 
 // Course -> Timetable
 Course.hasMany(Timetable, { foreignKey: "courseId" });
-Timetable.belongsTo(Course, { foreignKey: "courseId" });
+Timetable.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 
 // Student -> Attendance
 Student.hasMany(Attendance, { foreignKey: "studentId" });

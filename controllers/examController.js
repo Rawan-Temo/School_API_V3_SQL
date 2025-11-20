@@ -2,7 +2,7 @@ const Course = require("../models/course");
 const Exam = require("../models/exam");
 const createController = require("../utils/createControllers");
 
-const examController = createController(Exam, "Exam", ["title"], ["courseId"]);
+const examController = createController(Exam, "Exam", ["title"], ["course"]);
 
 const countData = async (req, res) => {
   try {

@@ -5,7 +5,7 @@ const { sequelize } = require("../sequelize");
 const Exam = sequelize.define(
   "Exam",
   {
-    _id: {
+    id: {
       type: DataTypes.INTEGER,
       autoIncrement: true,
       primaryKey: true,

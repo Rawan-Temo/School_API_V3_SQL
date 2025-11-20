@@ -48,6 +48,15 @@ const createAttendance = async (req, res) => {
         return res.status(403).json({ message: "Not allowed" });
     }
 
+    const studentCourseRe = await StudentCourse.findOne({
+      where: {
+        studentId: req.body.studentId,
+        courseId: req.body.courseId,
+      },
+    });
+    if (!studentCourseRe) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
     const attendance = await Attendance.create(req.body);
     return res.status(201).json(attendance);
   } catch (err) {
@@ -75,12 +84,22 @@ const updateAttendance = async (req, res) => {
       if (!teacherCourses.map((t) => t.id).includes(teacherId))
         return res.status(403).json({ message: "Not allowed" });
     }
+    if (
+      (req.body.studentId || req.body.courseId) &&
+      req.user.role === "Admin"
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not allowed to update these fields" });
+    }
 
-    const updated = await Attendance.update(req.body, {
+    await attendance.update(req.body, {
       where: { id },
       returning: true,
     });
-    return res.json(updated[1][0]);
+    console.log(attendance);
+
+    return res.json(attendance);
   } catch (err) {
     return res.status(500).json({ message: err.message });
   }

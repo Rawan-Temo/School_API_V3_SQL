@@ -2,6 +2,7 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/user");
 const Course = require("../models/course");
 const Exam = require("../models/exam");
+const Teacher = require("../models/teacher");
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -99,7 +100,15 @@ const createTeacherExamAuth = async (req, res, next) => {
       const { courseId } = req.body;
 
       const course = await Course.findOne({
-        where: { id: courseId, teacherId },
+        where: { id: courseId },
+        include: [
+          {
+            model: Teacher,
+            as: "teacherId", // the alias you defined in your association
+
+            where: { id: teacherId }, // filter only teachers matching this ID
+          },
+        ],
       });
 
       if (!course) {
@@ -121,19 +130,28 @@ const updateTeacherExamAuth = async (req, res, next) => {
 
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
-      const { courseId } = req.query;
+      const { courseId } = req.body;
 
+      if (courseId) {
+        return res
+          .status(403)
+          .json({ message: "unauthorized to update the course" });
+      }
       const exam = await Exam.findByPk(examId);
       if (!exam) {
         return res.status(404).json({ message: "Exam not found" });
       }
-
       const course = await Course.findOne({
-        where: {
-          id: courseId || exam.courseId,
-          teacherId,
-        },
+        where: { id: exam.courseId },
+        include: [
+          {
+            model: Teacher,
+            as: "teacherId", // the alias you defined in your association
+            where: { id: teacherId }, // filter only teachers matching this ID
+          },
+        ],
       });
+      console.log(course);
 
       if (!course) {
         return res.status(403).json({
@@ -170,7 +188,14 @@ const deleteTeacherExamAuth = async (req, res, next) => {
 
       // Check teacher owns all courseIds
       const courses = await Course.findAll({
-        where: { id: courseIds, teacherId },
+        where: { id: courseIds },
+        include: [
+          {
+            model: Teacher,
+            as: "teacherId", // the alias you defined in your association
+            where: { id: teacherId }, // filter only teachers matching this ID
+          },
+        ],
       });
 
       if (courses.length !== courseIds.length) {
