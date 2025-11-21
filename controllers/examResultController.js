@@ -28,41 +28,25 @@ const countData = async (req, res) => {
 };
 const oneResult = async (req, res) => {
   try {
-    let query;
+    let where = { id: req.params.id };
+
+    // Student can only see his own result
     if (req.user.role === "Student") {
-      query = ExamResult.findOne({
-        where: {
-          id: req.params.id,
-          studentId: req.user.profileId,
-        },
-        include: {
-          model: Exam,
-          as: "exam",
-          through: { attributes: [] },
-        },
-      });
-    } else {
-      query = ExamResult.findOne({
-        where: { id: req.params.id },
-        include: [
-          {
-            model: Exam,
-            as: "exam",
-            through: { attributes: [] },
-          },
-          {
-            model: Student,
-            as: "student",
-            through: { attributes: [] },
-          },
-        ],
-      });
+      where.studentId = req.user.profileId;
     }
-    const doc = await query;
+
+    const doc = await ExamResult.findOne({
+      where,
+      include: [
+        { model: Exam, as: "exam" },
+        { model: Student, as: "student" },
+      ],
+    });
 
     if (!doc) {
-      return res.status(404).json({ message: ` not found` });
+      return res.status(404).json({ message: `Not found` });
     }
+
     res.status(200).json({
       status: "success",
       data: doc,
