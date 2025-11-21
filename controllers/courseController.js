@@ -127,7 +127,7 @@ const updateCourse = async (req, res) => {
     }
 
     const updated = await Course.findByPk(course.id, {
-      include: { model: Teacher, as: "teachers", through: { attributes: [] } },
+      include: { model: Teacher, as: "teacherId", through: { attributes: [] } },
     });
 
     return res.status(200).json({ status: "success", data: updated });
