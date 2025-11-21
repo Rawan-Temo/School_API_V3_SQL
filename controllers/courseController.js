@@ -123,7 +123,7 @@ const updateCourse = async (req, res) => {
     // Update teachers only if provided
     if (teacherId) {
       const teacherList = Array.isArray(teacherId) ? teacherId : [teacherId];
-      await course.setTeachers(teacherList);
+      await course.setTeacherId(teacherList);
     }
 
     const updated = await Course.findByPk(course.id, {

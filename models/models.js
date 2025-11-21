@@ -38,11 +38,11 @@ Exam.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 
 // Student -> ExamResult
 Student.hasMany(ExamResult, { foreignKey: "studentId" });
-ExamResult.belongsTo(Student, { foreignKey: "studentId" });
+ExamResult.belongsTo(Student, { foreignKey: "studentId", as: "student" });
 
 // Exam -> ExamResult
 Exam.hasMany(ExamResult, { foreignKey: "examId" });
-ExamResult.belongsTo(Exam, { foreignKey: "examId" });
+ExamResult.belongsTo(Exam, { foreignKey: "examId", as: "exam" });
 
 // Class -> Timetable
 Class.hasMany(Timetable, { foreignKey: "classId" });

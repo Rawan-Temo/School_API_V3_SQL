@@ -16,6 +16,8 @@ router
 router
   .route("/submit")
   .post(authenticateToken, isStudent, quizController.submitQuiz);
+
+
 router
   .route("/:id")
   .get(authenticateToken, isStudent, quizController.getQuizById)
