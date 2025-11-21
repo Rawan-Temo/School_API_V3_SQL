@@ -1,4 +1,6 @@
+const Exam = require("../models/exam");
 const ExamResult = require("../models/examResult");
+const Student = require("../models/student");
 const createController = require("../utils/createControllers");
 
 // default controllers for ExamResult model
@@ -29,20 +31,37 @@ const oneResult = async (req, res) => {
     let query;
     if (req.user.role === "Student") {
       query = ExamResult.findOne({
-        _id: req.params.id,
-        studentId: req.user.profileId,
+        where: {
+          id: req.params.id,
+          studentId: req.user.profileId,
+        },
+        include: {
+          model: Exam,
+          as: "exam",
+          through: { attributes: [] },
+        },
       });
     } else {
-      query = ExamResult.findOne({ _id: req.params.id });
+      query = ExamResult.findOne({
+        where: { id: req.params.id },
+        include: [
+          {
+            model: Exam,
+            as: "exam",
+            through: { attributes: [] },
+          },
+          {
+            model: Student,
+            as: "student",
+            through: { attributes: [] },
+          },
+        ],
+      });
     }
-    query = query.populate([
-      { path: "examId", populate: "courseId" },
-      { path: "studentId" },
-    ]);
-    const doc = await query.lean();
+    const doc = await query;
 
     if (!doc) {
-      return res.status(404).json({ message: `${name} not found` });
+      return res.status(404).json({ message: ` not found` });
     }
     res.status(200).json({
       status: "success",
