@@ -20,6 +20,9 @@ router
   .post(authenticateToken, isAdmin, userController.createUser);
 
 router
+  .route("/delete-many")
+  .patch(authenticateToken, isAdmin, userController.deleteMany);
+router
   .route("/:id")
   .get(authenticateToken, isAdmin, userController.getOneById)
   .delete(authenticateToken, isAdmin, userController.deleteOne);
