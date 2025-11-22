@@ -31,6 +31,7 @@ const User = sequelize.define(
     },
     profileId: {
       type: DataTypes.INTEGER,
+      allowNull: false,
     },
     refreshToken: {
       type: DataTypes.STRING,

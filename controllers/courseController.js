@@ -2,6 +2,7 @@ const Course = require("../models/course");
 const Teacher = require("../models/teacher");
 const APIFeatures = require("../utils/apiFeatures");
 const createController = require("../utils/createControllers");
+const { search } = require("../utils/search");
 // Get default controllers for
 // Course model
 
@@ -46,7 +47,16 @@ const allCourses = async (req, res) => {
         through: { attributes: [] },
       });
     }
-
+    if (req.query.search) {
+      return await search(
+        Course,
+        "course",
+        ["name", "code"],
+        req,
+        res,
+        include
+      );
+    }
     const features = new APIFeatures(Course, req.query, include)
       .filter()
       .sort()

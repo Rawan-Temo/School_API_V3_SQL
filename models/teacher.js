@@ -27,7 +27,6 @@ const Teacher = sequelize.define(
     email: {
       type: DataTypes.STRING,
       allowNull: false,
-      unique: true, // unique constraint
       validate: {
         isEmail: true,
       },

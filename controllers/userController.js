@@ -14,7 +14,6 @@ const createUser = async (req, res) => {
   try {
     console.log(req.body);
     const { username, password, role, profileId } = req.body;
-    const { id } = profileId;
 
     // Check if username or profileId exists
     const existingUser = await User.findOne({
@@ -35,15 +34,15 @@ const createUser = async (req, res) => {
     let profileExists = false;
     if (role === "Teacher")
       profileExists = await Teacher.findOne({
-        where: { id: id },
+        where: { id: profileId },
       });
     else if (role === "Student")
       profileExists = await Student.findOne({
-        where: { id: id },
+        where: { id: profileId },
       });
     else if (role === "Admin")
       profileExists = await Admin.findOne({
-        where: { id: id },
+        where: { id: profileId },
       });
 
     if (!profileExists) {
@@ -60,7 +59,7 @@ const createUser = async (req, res) => {
       username,
       password: hashedPassword,
       role: role || "user",
-      profileId: profileId.id,
+      profileId: profileId,
     });
 
     res.status(201).json({
@@ -185,14 +184,13 @@ const userProfile = async (req, res) => {
     if (user.role === "Admin") {
       profile = await Admin.findByPk(user.profileId);
     } else if (user.role === "Teacher") {
-      profile = Teacher.findByPk(user.profileId);
+      profile = await Teacher.findByPk(user.profileId);
     } else {
-      profile = Student.findByPk(user.profileId);
+      profile = await Student.findByPk(user.profileId);
     }
     user.profileId = profile;
     user.password = undefined;
     user.refreshToken = undefined;
-
     res.status(200).json({ user });
   } catch (err) {
     res.status(500).json({ message: err.message });

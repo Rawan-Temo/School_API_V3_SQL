@@ -17,7 +17,6 @@ const Course = sequelize.define(
       validate: {
         notEmpty: true,
       },
-      unique: true,
     },
     code: {
       type: DataTypes.STRING,
@@ -25,7 +24,6 @@ const Course = sequelize.define(
       validate: {
         notEmpty: true,
       },
-      unique: true,
     },
     description: {
       type: DataTypes.STRING,
