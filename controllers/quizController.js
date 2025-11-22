@@ -11,14 +11,9 @@ const getAllQuizzes = async (req, res) => {
     const options = {
       include: [
         {
-          model: Question,
-          as: "Questions",
-          include: [{ model: Choice, as: "Choices" }],
-        },
-        {
           model: Course,
           as: "Course",
-          include: [{ model: Teacher, as: "teacherId" }],
+          include: [{ model: Teacher, as: "teacherId", attributes: ["id"] }],
         },
       ],
       where: {},
@@ -273,8 +268,8 @@ const submitQuiz = async (req, res) => {
       include: [
         {
           model: Question,
-          as: "questions",
-          include: [{ model: Choice, as: "choices" }],
+          as: "Questions",
+          include: [{ model: Choice, as: "Choices" }],
         },
       ],
     });

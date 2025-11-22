@@ -148,11 +148,54 @@ const allAttendances = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+const deleteAttendance = async (req, res) => {
+  try {
+    const attendanceId = req.params.id;
 
+    if (!attendanceId)
+      return res.status(400).json({ message: "Attendance ID is required" });
+
+    // 1) Get the attendance with its course and teacher
+    const attendance = await Attendance.findByPk(attendanceId, {
+      include: [
+        {
+          model: Course,
+          as: "Course",
+          include: [{ model: Teacher, as: "teacherId" }],
+        },
+      ],
+    });
+
+    if (!attendance)
+      return res.status(404).json({ message: "Attendance not found" });
+
+    // 2) Teacher Permission Check
+    if (req.user.role === "Teacher") {
+      const teacherId = req.user.profileId;
+
+      if (!attendance.Course || attendance.Course.teacherId.id !== teacherId)
+        return res
+          .status(403)
+          .json({ message: "You are not allowed to delete this attendance" });
+    }
+
+    // 3) Perform the delete
+    await attendance.destroy();
+
+    return res.status(200).json({
+      status: "success",
+      message: "Attendance deleted successfully",
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ status: "fail", message: e.message });
+  }
+};
 module.exports = {
   ...attendanceController,
   countData,
   updateAttendance,
   createAttendance,
   allAttendances,
+  deleteAttendance,
 };
