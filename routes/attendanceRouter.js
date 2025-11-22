@@ -23,7 +23,7 @@ router
 
 router
   .route("/delete-many")
-  .patch(authenticateToken, isAdmin, attendanceController.deleteMany);
+  .patch(authenticateToken, isTeacher, attendanceController.deleteAttendance);
 router
   .route("/:id")
   .patch(authenticateToken, isTeacher, attendanceController.updateAttendance);
