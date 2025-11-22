@@ -4,7 +4,7 @@ const Student = require("../models/student");
 const createController = require("../utils/createControllers");
 
 // default controllers for ExamResult model
-
+//TODO NEW GET ALL EXAM RESULTS
 const examResultController = createController(ExamResult, "examResult", "", [
   "exam",
   "student",

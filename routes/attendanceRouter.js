@@ -3,11 +3,7 @@ const router = express.Router();
 const attendanceController = require("../controllers/attendanceController.js");
 const {
   authenticateToken,
-  isAdmin,
   isTeacher,
-  isStudent,
-  attachTeacherQuery,
-  attachTeacherBody,
 } = require("../middlewares/authMiddleware.js");
 router.get(
   "/count",
@@ -22,10 +18,8 @@ router
   .post(authenticateToken, isTeacher, attendanceController.createAttendance);
 
 router
-  .route("/delete-many")
-  .patch(authenticateToken, isTeacher, attendanceController.deleteAttendance);
-router
   .route("/:id")
-  .patch(authenticateToken, isTeacher, attendanceController.updateAttendance);
+  .patch(authenticateToken, isTeacher, attendanceController.updateAttendance)
+  .delete(authenticateToken, isTeacher, attendanceController.deleteAttendance);
 
 module.exports = router;
