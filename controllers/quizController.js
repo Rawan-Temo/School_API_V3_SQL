@@ -1,9 +1,9 @@
-const Quiz = require("../models/quiz.js");
+const { Quiz, Question, Choice } = require("../models/quiz.js");
 const Course = require("../models/course.js");
 const APIFeatures = require("../utils/apiFeatures");
 const ExamResult = require("../models/examResult.js");
 const { Op } = require("sequelize");
-
+// TODO fix the update
 // Get all quizzes with APIFeatures and optional teacherId filter
 const getAllQuizzes = async (req, res) => {
   try {
@@ -11,10 +11,10 @@ const getAllQuizzes = async (req, res) => {
       include: [
         {
           model: Question,
-          as: "questions",
-          include: [{ model: Choice, as: "choices" }],
+          as: "Questions",
+          include: [{ model: Choice, as: "Choices" }],
         },
-        { model: Course, as: "course" },
+        { model: Course, as: "Course" },
       ],
       where: {},
     };
@@ -60,10 +60,10 @@ const getQuizById = async (req, res) => {
       include: [
         {
           model: Question,
-          as: "questions",
-          include: [{ model: Choice, as: "choices" }],
+          as: "Questions",
+          include: [{ model: Choice, as: "Choices" }],
         },
-        { model: Course, as: "course" },
+        { model: Course, as: "Course" },
       ],
     });
 
@@ -85,6 +85,7 @@ const getQuizById = async (req, res) => {
 // Create a new quiz
 const createQuiz = async (req, res) => {
   try {
+    console.log(req.body);
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
       const courseId = req.body.courseId;
@@ -93,7 +94,14 @@ const createQuiz = async (req, res) => {
         return res.status(400).json({ message: "courseId is required" });
 
       const course = await Course.findOne({
-        where: { id: courseId, teacherId },
+        where: { id: courseId },
+        include: [
+          {
+            model: Teacher,
+            as: "teacherId", // the alias you defined in your association
+            where: { id: teacherId }, // filter only teachers matching this ID
+          },
+        ],
       });
       if (!course)
         return res
@@ -102,6 +110,25 @@ const createQuiz = async (req, res) => {
     }
 
     const newQuiz = await Quiz.create(req.body);
+
+    // add the questoins and the choices to the quiz
+    if (req.body.questions && Array.isArray(req.body.questions)) {
+      for (const questionData of req.body.questions) {
+        const question = await Question.create({
+          ...questionData,
+          quizId: newQuiz.id,
+        });
+        if (questionData.choices && Array.isArray(questionData.choices)) {
+          for (const choiceData of questionData.choices) {
+            await Choice.create({
+              ...choiceData,
+              questionId: question.id,
+            });
+          }
+        }
+      }
+    }
+
     res.status(201).json({ status: "success", data: newQuiz });
   } catch (err) {
     res.status(400).json({ status: "fail", message: err.message });
@@ -117,13 +144,27 @@ const updateQuiz = async (req, res) => {
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
       const course = await Course.findOne({
-        where: { id: quiz.courseId, teacherId },
+        where: { id: quiz.courseId },
+        include: [
+          {
+            model: Teacher,
+            as: "teacherId", // the alias you defined in your association
+            where: { id: teacherId }, // filter only teachers matching this ID
+          },
+        ],
       });
       if (!course) return res.status(403).json({ message: "Not allowed" });
 
       if (req.body.courseId) {
         const newCourse = await Course.findOne({
-          where: { id: req.body.courseId, teacherId },
+          where: { id: req.body.courseId },
+          include: [
+            {
+              model: Teacher,
+              as: "teacherId", // the alias you defined in your association
+              where: { id: teacherId }, // filter only teachers matching this ID
+            },
+          ],
         });
         if (!newCourse)
           return res.status(403).json({ message: "Not allowed to move quiz" });
@@ -146,7 +187,14 @@ const deleteQuiz = async (req, res) => {
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
       const course = await Course.findOne({
-        where: { id: quiz.courseId, teacherId },
+        where: { id: quiz.courseId },
+        include: [
+          {
+            model: Teacher,
+            as: "teacherId", // the alias you defined in your association
+            where: { id: teacherId }, // filter only teachers matching this ID
+          },
+        ],
       });
       if (!course) return res.status(403).json({ message: "Not allowed" });
     }
