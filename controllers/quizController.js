@@ -331,7 +331,68 @@ const submitQuiz = async (req, res) => {
     res.status(500).json({ status: "fail", message: err.message });
   }
 };
+// Delete multiple quizzes
+const deleteManyQuizzes = async (req, res) => {
+  const t = await Quiz.sequelize.transaction();
+  try {
+    const { ids } = req.body;
 
+    if (!Array.isArray(ids) || ids.length === 0) {
+      await t.rollback();
+      return res.status(400).json({ message: "ids must be a non-empty array" });
+    }
+
+    // Get all quizzes requested
+    const quizzes = await Quiz.findAll({
+      where: { id: ids },
+      include: [
+        {
+          model: Course,
+          as: "Course",
+          include: [{ model: Teacher, as: "teacherId" }],
+        },
+      ],
+      transaction: t,
+    });
+
+    if (quizzes.length !== ids.length) {
+      await t.rollback();
+      return res.status(404).json({ message: "Some quizzes were not found" });
+    }
+
+    // ===== AUTHORIZATION FOR TEACHER =====
+    if (req.user.role === "Teacher") {
+      const teacherId = req.user.profileId;
+
+      // Check every quiz belongs to this teacher
+      for (const quiz of quizzes) {
+        if (!quiz.Course?.teacherId || quiz.Course.teacherId.id !== teacherId) {
+          await t.rollback();
+          return res.status(403).json({
+            message: `Not allowed to delete quiz with id ${quiz.id}`,
+          });
+        }
+      }
+    }
+
+    // ===== AUTHORIZED → DELETE =====
+    await Quiz.destroy({
+      where: { id: ids },
+      transaction: t,
+    });
+
+    await t.commit();
+
+    return res.status(200).json({
+      status: "success",
+      message: `${ids.length} quizzes deleted successfully`,
+    });
+  } catch (err) {
+    await t.rollback();
+    console.error(err);
+    res.status(500).json({ status: "fail", message: err.message });
+  }
+};
 module.exports = {
   getAllQuizzes,
   getQuizById,
@@ -339,4 +400,5 @@ module.exports = {
   updateQuiz,
   deleteQuiz,
   submitQuiz,
+  deleteManyQuizzes,
 };
