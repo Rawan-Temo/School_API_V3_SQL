@@ -281,7 +281,7 @@ const submitQuiz = async (req, res) => {
     if (existing)
       return res
         .status(400)
-        .json({ message: "You already submitted this quiz" });
+        .json({ message: "You already submitted this quiz", existing });
 
     const ids = studentAnswers.map((a) => String(a.questionId));
     if (ids.length !== new Set(ids).size)

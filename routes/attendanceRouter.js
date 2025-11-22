@@ -3,11 +3,7 @@ const router = express.Router();
 const attendanceController = require("../controllers/attendanceController.js");
 const {
   authenticateToken,
-  isAdmin,
   isTeacher,
-  isStudent,
-  attachTeacherQuery,
-  attachTeacherBody,
 } = require("../middlewares/authMiddleware.js");
 router.get(
   "/count",
