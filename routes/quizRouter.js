@@ -12,11 +12,12 @@ router
   .route("/")
   .post(authenticateToken, isTeacher, quizController.createQuiz)
   .get(authenticateToken, isStudent, quizController.getAllQuizzes);
-
+router
+  .route("/delete-many")
+  .patch(authenticateToken, isTeacher, quizController.deleteManyQuizzes);
 router
   .route("/submit")
   .post(authenticateToken, isStudent, quizController.submitQuiz);
-
 
 router
   .route("/:id")
