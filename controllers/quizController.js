@@ -272,8 +272,8 @@ const submitQuiz = async (req, res) => {
       include: [
         {
           model: Question,
-          as: "questions",
-          include: [{ model: Choice, as: "choices" }],
+          as: "Questions",
+          include: [{ model: Choice, as: "Choices" }],
         },
       ],
     });
