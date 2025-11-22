@@ -5,6 +5,7 @@ const Student = require("../models/student");
 const APIFeatures = require("../utils/apiFeatures");
 const { Op } = require("sequelize");
 const createController = require("../utils/createControllers");
+const Teacher = require("../models/teacher");
 
 // Default CRUD via your createController
 const attendanceController = createController(
@@ -80,7 +81,7 @@ const updateAttendance = async (req, res) => {
         where: { id: attendance.courseId },
       });
 
-      const teacherCourses = await course.getTeachers();
+      const teacherCourses = await course.getTeacherId();
       if (!teacherCourses.map((t) => t.id).includes(teacherId))
         return res.status(403).json({ message: "Not allowed" });
     }
@@ -160,7 +161,7 @@ const deleteAttendance = async (req, res) => {
       include: [
         {
           model: Course,
-          as: "Course",
+          as: "course",
           include: [{ model: Teacher, as: "teacherId" }],
         },
       ],
@@ -173,10 +174,10 @@ const deleteAttendance = async (req, res) => {
     if (req.user.role === "Teacher") {
       const teacherId = req.user.profileId;
 
-      if (!attendance.Course || attendance.Course.teacherId.id !== teacherId)
-        return res
-          .status(403)
-          .json({ message: "You are not allowed to delete this attendance" });
+      if (!attendance.course || attendance.course.teacherId[0].id !== teacherId)
+        return res.status(403).json({
+          message: "You are not allowed to delete this attendance",
+        });
     }
 
     // 3) Perform the delete

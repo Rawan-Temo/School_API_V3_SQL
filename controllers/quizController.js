@@ -289,13 +289,13 @@ const submitQuiz = async (req, res) => {
         .status(400)
         .json({ message: "Multiple answers per question not allowed" });
 
-    const validQuestionIds = new Set(quiz.questions.map((q) => String(q.id)));
+    const validQuestionIds = new Set(quiz.Questions.map((q) => String(q.id)));
     for (const id of ids)
       if (!validQuestionIds.has(id))
         return res.status(400).json({ message: "Invalid question submitted" });
 
     let correctCount = 0;
-    for (const q of quiz.questions) {
+    for (const q of quiz.Questions) {
       const ans = studentAnswers.find(
         (a) => String(a.questionId) === String(q.id)
       );
@@ -303,12 +303,12 @@ const submitQuiz = async (req, res) => {
 
       let correctAnswer;
       if (q.type === "true-false") correctAnswer = String(q.correctAnswer);
-      else correctAnswer = String(q.choices.find((c) => c.isCorrect)?.text);
+      else correctAnswer = String(q.Choices.find((c) => c.isCorrect)?.text);
 
       if (String(ans.answer) === correctAnswer) correctCount++;
     }
 
-    const score = (quiz.totalMarks * correctCount) / quiz.questions.length;
+    const score = (quiz.totalMarks * correctCount) / quiz.Questions.length;
     const examResult = await ExamResult.create({
       examId: quizId,
       studentId,
