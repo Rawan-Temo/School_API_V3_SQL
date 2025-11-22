@@ -112,6 +112,7 @@ const createQuiz = async (req, res) => {
     const newQuiz = await Quiz.create(req.body);
 
     // add the questoins and the choices to the quiz
+
     if (req.body.questions && Array.isArray(req.body.questions)) {
       for (const questionData of req.body.questions) {
         const question = await Question.create({
