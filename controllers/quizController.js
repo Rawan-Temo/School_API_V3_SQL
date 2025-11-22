@@ -34,9 +34,11 @@ const getAllQuizzes = async (req, res) => {
     // Hide answers for students
     if (req.user.role === "Student") {
       quizzes.forEach((quiz) => {
-        quiz.questions?.forEach((q) => {
+        quiz.Questions?.forEach((q) => {
           if (q.type === "true-false") q.correctAnswer = null;
-          else q.choices?.forEach((c) => (c.isCorrect = null));
+          else {
+            q.Choices?.forEach((c) => (c.isCorrect = null));
+          }
         });
       });
     }
@@ -70,9 +72,9 @@ const getQuizById = async (req, res) => {
     if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
     if (req.user.role === "Student") {
-      quiz.questions?.forEach((q) => {
+      quiz.Questions?.forEach((q) => {
         if (q.type === "true-false") q.correctAnswer = null;
-        else q.choices?.forEach((c) => (c.isCorrect = null));
+        else q.Choices?.forEach((c) => (c.isCorrect = null));
       });
     }
 
