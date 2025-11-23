@@ -6,13 +6,21 @@ const {
   isAdmin,
   isTeacher,
   attachStudentQuery,
+  createTeacherResultAuth,
+  updateTeacherResultAuth,
+  deleteTeacherResultAuth,
 } = require("../middlewares/authMiddleware.js");
 router.get("/count", examResultController.countData);
-
+// TODO fix teacher auth
 router
   .route("/")
   .get(authenticateToken, attachStudentQuery, examResultController.getAll)
-  .post(authenticateToken, isTeacher, examResultController.createOne);
+  .post(
+    authenticateToken,
+    isTeacher,
+    createTeacherResultAuth,
+    examResultController.createOne
+  );
 
 router
   .route("/deactivate-many")
@@ -20,7 +28,12 @@ router
 
 router
   .route("/delete-many")
-  .patch(authenticateToken, isAdmin, examResultController.deleteMany);
+  .patch(
+    authenticateToken,
+    isTeacher,
+    deleteTeacherResultAuth,
+    examResultController.deleteMany
+  );
 
 router
   .route("/deactivate/:id")
@@ -29,7 +42,12 @@ router
 router
   .route("/:id")
   .get(authenticateToken, attachStudentQuery, examResultController.oneResult)
-  .patch(authenticateToken, isTeacher, examResultController.updateOne)
+  .patch(
+    authenticateToken,
+    isTeacher,
+    updateTeacherResultAuth,
+    examResultController.updateOne
+  )
   .delete(authenticateToken, isAdmin, examResultController.deleteOne);
 
 module.exports = router;

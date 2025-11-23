@@ -1,8 +1,21 @@
+const { Model, model } = require("mongoose");
 const Course = require("../models/course");
 const Exam = require("../models/exam");
 const createController = require("../utils/createControllers");
+const Teacher = require("../models/teacher");
 
-const examController = createController(Exam, "Exam", ["title"], ["course"]);
+const examController = createController(
+  Exam,
+  "Exam",
+  ["title"],
+  [
+    {
+      model: Course,
+      as: "course",
+      include: [{ model: Teacher, as: "teacherId" }],
+    },
+  ]
+);
 
 const countData = async (req, res) => {
   try {

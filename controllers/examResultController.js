@@ -1,5 +1,6 @@
 const Exam = require("../models/exam");
 const ExamResult = require("../models/examResult");
+const { Quiz } = require("../models/quiz");
 const Student = require("../models/student");
 const createController = require("../utils/createControllers");
 
@@ -8,6 +9,7 @@ const createController = require("../utils/createControllers");
 const examResultController = createController(ExamResult, "examResult", "", [
   "exam",
   "student",
+  "quiz",
 ]);
 
 // Add a new exam result
@@ -40,9 +42,11 @@ const oneResult = async (req, res) => {
       include: [
         { model: Exam, as: "exam" },
         { model: Student, as: "student" },
+        { model: Quiz, as: "quiz" },
       ],
     });
 
+    console.log(doc);
     if (!doc) {
       return res.status(404).json({ message: `Not found` });
     }

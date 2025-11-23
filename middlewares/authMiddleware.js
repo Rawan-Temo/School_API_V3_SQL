@@ -3,6 +3,7 @@ const User = require("../models/user");
 const Course = require("../models/course");
 const Exam = require("../models/exam");
 const Teacher = require("../models/teacher");
+const ExamResult = require("../models/examResult");
 
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -211,6 +212,112 @@ const deleteTeacherExamAuth = async (req, res, next) => {
   }
 };
 
+const createTeacherResultAuth = async (req, res, next) => {
+  try {
+    if (req.user.role === "Teacher") {
+      const teacherId = req.user.profileId;
+      const { examId } = req.body;
+      const exam = await Exam.findOne({
+        where: { id: examId },
+        include: [
+          {
+            model: Course,
+            as: "course",
+            include: [
+              {
+                model: Teacher,
+                as: "teacherId", // the alias you defined in your association
+                where: { id: teacherId }, // filter only teachers matching ID
+              },
+            ],
+          },
+        ],
+      });
+      if (!exam) {
+        return res.status(403).json({
+          message: "Exam not found or unauthorized to create result for it",
+        });
+      }
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateTeacherResultAuth = async (req, res, next) => {
+  try {
+    if (req.user.role === "Teacher") {
+      const teacherId = req.user.profileId;
+      const { examId } = req.params.id;
+      if (req.body.examId) {
+        return res.status(403).json({
+          message: "unauthorized to update examId or courseId",
+        });
+      }
+      const exam = await Exam.findOne({
+        where: { id: examId },
+        include: [
+          {
+            model: Course,
+            as: "course",
+            include: [
+              {
+                model: Teacher,
+                as: "teacherId", // the alias you defined in your association
+                where: { id: teacherId }, // filter only teachers matching ID
+              },
+            ],
+          },
+        ],
+      });
+      if (!exam) {
+        return res.status(403).json({
+          message: "Exam not found or unauthorized to update result for it",
+        });
+      }
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+const deleteTeacherResultAuth = async (req, res, next) => {
+  try {
+    if (req.user.role === "Teacher") {
+      //Optemize way to do many deletion check
+
+      const teacherId = req.user.profileId;
+      const ids = req.body.ids;
+      const examResults = await ExamResult.findAll({ where: { id: ids } });
+      const examIds = examResults.map((result) => result.examId);
+      const exams = await Exam.findAll({
+        where: { id: examIds },
+        include: [
+          {
+            model: Course,
+            as: "course",
+            include: [
+              {
+                model: Teacher,
+                as: "teacherId",
+                where: { id: teacherId },
+              },
+            ],
+          },
+        ],
+      });
+      if (exams.length !== examIds.length) {
+        return res.status(403).json({
+          message: "Not authorized to delete one or more of these results",
+        });
+      }
+    }
+    next();
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 module.exports = {
   authenticateToken,
   isAdmin,
@@ -218,9 +325,12 @@ module.exports = {
   isStudent,
   attachStudentQuery,
   attachStudentBody,
+  createTeacherResultAuth,
   attachTeacherQuery,
   attachTeacherBody,
   createTeacherExamAuth,
   updateTeacherExamAuth,
   deleteTeacherExamAuth,
+  updateTeacherResultAuth,
+  deleteTeacherResultAuth,
 };

@@ -310,6 +310,13 @@ const submitQuiz = async (req, res) => {
     }
 
     const score = (quiz.totalMarks * correctCount) / quiz.Questions.length;
+    if (score > quiz.totalMarks) {
+      res
+        .status(500)
+        .json({
+          message: "What do you mean score is greater than total marks?",
+        });
+    }
     const examResult = await ExamResult.create({
       quizId: quizId,
       studentId,
@@ -389,8 +396,6 @@ const deleteManyQuizzes = async (req, res) => {
     res.status(500).json({ status: "fail", message: err.message });
   }
 };
-
-
 
 module.exports = {
   getAllQuizzes,

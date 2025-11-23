@@ -16,6 +16,12 @@ const StudentCourse = sequelize.define(
   {
     tableName: "student_courses",
     timestamps: true,
+    indexes: [
+      {
+        unique: true,
+        fields: ["studentId", "courseId", "status"],
+      },
+    ],
   }
 );
 
