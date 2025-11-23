@@ -12,6 +12,7 @@ const StudentCourse = require("./studentCourse");
 const ExamResult = require("./examResult");
 const Timetable = require("./timeTable");
 const Attendance = require("./attendance");
+const { Quiz } = require("./quiz");
 
 // =====================
 // Teacher <-> Course Many-to-Many
@@ -39,7 +40,13 @@ Exam.belongsTo(Course, { foreignKey: "courseId", as: "course" });
 // Student -> ExamResult
 Student.hasMany(ExamResult, { foreignKey: "studentId" });
 ExamResult.belongsTo(Student, { foreignKey: "studentId", as: "student" });
+// EXAM RESULT EXAMID
+Exam.hasMany(ExamResult, { foreignKey: "examId" });
+ExamResult.belongsTo(Exam, { foreignKey: "examId", as: "exam" });
+// QUIZ RESULT QUIZID
 
+Quiz.hasMany(ExamResult, { foreignKey: "quizId" });
+ExamResult.belongsTo(Quiz, { foreignKey: "quizId", as: "quiz" });
 // Class -> Timetable
 Class.hasMany(Timetable, { foreignKey: "classId" });
 Timetable.belongsTo(Class, { foreignKey: "classId", as: "class" });
