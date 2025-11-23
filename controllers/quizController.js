@@ -276,7 +276,7 @@ const submitQuiz = async (req, res) => {
     if (!quiz) return res.status(404).json({ message: "Quiz not found" });
 
     const existing = await ExamResult.findOne({
-      where: { examId: quizId, studentId },
+      where: { quizId: quizId, studentId },
     });
     if (existing)
       return res
@@ -310,7 +310,7 @@ const submitQuiz = async (req, res) => {
 
     const score = (quiz.totalMarks * correctCount) / quiz.Questions.length;
     const examResult = await ExamResult.create({
-      examId: quizId,
+      quizId: quizId,
       studentId,
       score,
       type: "Quiz",
@@ -388,6 +388,9 @@ const deleteManyQuizzes = async (req, res) => {
     res.status(500).json({ status: "fail", message: err.message });
   }
 };
+
+
+
 module.exports = {
   getAllQuizzes,
   getQuizById,

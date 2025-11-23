@@ -16,7 +16,11 @@ const ExamResult = sequelize.define(
     },
     examId: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true,
+    },
+    quizId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
     },
     type: {
       type: DataTypes.ENUM("Exam", "Quiz"),
