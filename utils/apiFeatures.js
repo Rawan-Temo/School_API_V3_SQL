@@ -57,7 +57,7 @@ class APIFeatures {
       });
       this.options.order = order;
     } else {
-      this.options.order = [["createdAt", "DESC"]]; // default sort
+      this.options.order = [["id", "ASC"]]; // default sort
     }
     return this;
   }
@@ -80,7 +80,6 @@ class APIFeatures {
 
   async execute() {
     // Returns [rows, count]
-    console.log(this.options);
     const rows = await this.model.findAll(this.options);
     const count = await this.model.count({ where: this.options.where });
     return [rows, count];
