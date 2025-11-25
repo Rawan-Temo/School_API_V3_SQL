@@ -57,7 +57,7 @@ class APIFeatures {
       });
       this.options.order = order;
     } else {
-      this.options.order = [["id", "ASC"]]; // default sort
+      this.options.order = [["createdAt", "DESC"]]; // default sort
     }
     return this;
   }
